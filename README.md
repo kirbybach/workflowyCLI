@@ -2,6 +2,10 @@
 
 A powerful command-line interface for Workflowy, allowing you to navigate and manipulate your Workflowy nodes directly from the terminal.
 
+
+https://github.com/user-attachments/assets/eb7580ca-5296-4322-a5e4-5c9cb824a913
+
+
 ## Features
 
 -   **Interactive REPL**: Navigate your Workflowy tree like a file system.
