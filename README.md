@@ -27,7 +27,7 @@ npm link
 First, you need to log in with your Workflowy API key.
 
 ```bash
-workflowy login <your-api-key>
+wf login <your-api-key>
 ```
 
 ### 2. Interactive Session
@@ -35,13 +35,13 @@ workflowy login <your-api-key>
 Start the interactive shell:
 
 ```bash
-workflowy
+wf
 ```
 
 or explicitly:
 
 ```bash
-workflowy repl
+wf repl
 ```
 
 ## Commands
