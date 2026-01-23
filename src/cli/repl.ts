@@ -1,6 +1,7 @@
 import readline from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import chalk from 'chalk';
+import boxen from 'boxen';
 import { Session } from '../state/session.js';
 import * as commands from '../commands/index.js';
 
@@ -25,7 +26,8 @@ export async function startRepl(session: Session) {
         console.log('^C');
     });
 
-    console.log(chalk.blue("Welcome to Workflowy CLI. Type 'help' for commands."));
+    console.log(boxen(chalk.blue("Workflowy CLI"), { padding: 1, borderStyle: 'round', borderColor: 'blue' }));
+    console.log(chalk.dim("Type 'help' for commands."));
 
     while (true) {
         const pathStr = session.getCurrentPathString();

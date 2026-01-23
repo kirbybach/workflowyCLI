@@ -1,3 +1,4 @@
+import boxen from 'boxen';
 import chalk from 'chalk';
 import { Session } from '../state/session.js';
 
@@ -11,6 +12,7 @@ export async function ls(session: Session, args: string[]) {
             return;
         }
 
+        const lines: string[] = [];
         let printedCount = 0;
         children.forEach((child, index) => {
             // Filter completed
@@ -28,15 +30,17 @@ export async function ls(session: Session, args: string[]) {
                 name = chalk.strikethrough(name); // Visual indicator
             }
 
-            console.log(`${indexStr} ${name}`);
+            lines.push(`${indexStr} ${name}`);
             if (child.note) {
-                console.log(chalk.dim(`    ${child.note.split('\n')[0]}...`));
+                lines.push(chalk.dim(`    ${child.note.split('\n')[0]}...`));
             }
             printedCount++;
         });
 
         if (printedCount === 0 && children.length > 0) {
             console.log(chalk.gray(`(all ${children.length} items are completed. use 'ls -a' to see them)`));
+        } else if (lines.length > 0) {
+            console.log(boxen(lines.join('\n'), { padding: 0, borderStyle: 'round', borderColor: 'gray', dimBorder: true }));
         }
 
     } catch (error: any) {

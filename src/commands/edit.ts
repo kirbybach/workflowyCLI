@@ -31,13 +31,28 @@ export async function edit(session: Session, args: string[]) {
             await fs.writeFile(tmpFile, initialContent);
 
             await new Promise<void>((resolve, reject) => {
+                const wasRaw = process.stdin.isRaw;
+                if (wasRaw && process.stdin.setRawMode) {
+                    process.stdin.setRawMode(false);
+                }
+
                 const child = spawn(editor, [tmpFile], {
                     stdio: 'inherit'
                 });
 
-                child.on('error', reject);
+                child.on('error', (err) => {
+                    if (wasRaw && process.stdin.setRawMode) {
+                        process.stdin.setRawMode(true);
+                    }
+                    reject(err);
+                });
 
                 child.on('exit', async (code) => {
+                    if (wasRaw && process.stdin.setRawMode) {
+                        process.stdin.setRawMode(true);
+                        process.stdin.resume();
+                    }
+
                     try {
                         if (code === 0) {
                             const content = await fs.readFile(tmpFile, 'utf-8');

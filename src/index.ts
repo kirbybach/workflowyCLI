@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
+import ora from 'ora';
 import { WorkflowyClient } from './api/client.js';
 import { Session } from './state/session.js';
 import { startRepl } from './cli/repl.js';
@@ -32,11 +33,14 @@ program
         }
 
         const session = new Session(client);
+        const spinner = ora('Connecting to Workflowy...').start();
         try {
             await session.init();
+            spinner.succeed("Connected");
             await startRepl(session);
         } catch (e: any) {
-            console.error("Failed to start session:", e.message);
+            spinner.fail("Failed to start session");
+            console.error(e.message);
         }
     });
 
