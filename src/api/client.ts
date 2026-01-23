@@ -118,6 +118,14 @@ export class WorkflowyClient {
             method: 'POST'
         });
     }
+
+    async uncompleteNode(id: string): Promise<void> {
+        // POST /api/v1/nodes/:id/uncomplete
+        await this.request(`/nodes/${id}/uncomplete`, {
+            method: 'POST'
+        });
+    }
+
     async moveNode(id: string, parentId: string, priority: number): Promise<WorkflowyNode> {
         // API Doc: POST /api/v1/nodes/:id/move
         // Parameters: parent_id, priority

@@ -22,7 +22,7 @@ export async function ls(session: Session, args: string[]) {
 
             const indexStr = chalk.dim(`[${index + 1}]`); // 1-based index
             let name = child.name;
-            if (child.name.trim() === "") {
+            if (!child.name || child.name.trim() === "") {
                 name = chalk.italic.gray("(untitled)");
             }
 
@@ -32,7 +32,13 @@ export async function ls(session: Session, args: string[]) {
 
             lines.push(`${indexStr} ${name}`);
             if (child.note) {
-                lines.push(chalk.dim(`    ${child.note.split('\n')[0]}...`));
+                const noteLines = child.note.split('\n');
+                const firstLine = noteLines[0] || '';
+                const hasMore = noteLines.length > 1 || firstLine.length > 50;
+                const displayNote = firstLine.length > 50
+                    ? firstLine.substring(0, 50) + '...'
+                    : firstLine + (hasMore ? '...' : '');
+                lines.push(chalk.dim(`    ${displayNote}`));
             }
             printedCount++;
         });

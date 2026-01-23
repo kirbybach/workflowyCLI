@@ -34,6 +34,13 @@ export class Session {
         return this.currentPath.map(p => p.name).join("/");
     }
 
+    getParentNodeId(): string | null {
+        if (this.currentPath.length <= 1) {
+            return null; // Already at root
+        }
+        return this.currentPath[this.currentPath.length - 2]?.id || null;
+    }
+
     // Synchronous helper for autocomplete
     getCachedChildrenSync(): WorkflowyNode[] | undefined {
         return this.nodeCache.get(this.currentNodeId);
@@ -119,7 +126,7 @@ export class Session {
     // --- Mutation Methods ---
 
     async createNode(parentId: string, name: string, note?: string) {
-        const newNode = await this.client.createNode(parentId, name);
+        const newNode = await this.client.createNode(parentId, name, note);
         this.nodeCache.delete(parentId);
         return newNode;
     }
@@ -136,6 +143,11 @@ export class Session {
 
     async completeNode(nodeId: string) {
         await this.client.completeNode(nodeId);
+        this.nodeCache.delete(this.currentNodeId);
+    }
+
+    async uncompleteNode(nodeId: string) {
+        await this.client.uncompleteNode(nodeId);
         this.nodeCache.delete(this.currentNodeId);
     }
 

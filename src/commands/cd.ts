@@ -1,8 +1,6 @@
 import { Session } from '../state/session.js';
 import chalk from 'chalk';
 
-import Enquirer from 'enquirer';
-
 export async function cd(session: Session, args: string[]) {
     // Usage: cd <target>
     // Target can be ".." or name or index
