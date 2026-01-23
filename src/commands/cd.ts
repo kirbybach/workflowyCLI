@@ -9,45 +9,9 @@ export async function cd(session: Session, args: string[]) {
 
     if (args.length === 0) {
         try {
-            const children = await session.getChildren();
-            if (children.length === 0) {
-                console.log(chalk.gray("(empty directory)"));
-                return;
-            }
-
-            // Interactive selection
-            const choices = children.map((c, i) => {
-                let display = c.name;
-                if (!display.trim()) display = "(untitled)";
-
-                // Visual indicators in the list
-                if (c.completedAt) {
-                    display = chalk.strikethrough(display);
-                }
-
-                return {
-                    name: (i + 1).toString(), // Return the 1-based index which changeDirectory handles
-                    message: display,
-                    value: (i + 1).toString()
-                };
-            });
-
-            // Using 'any' cast for Enquirer to avoid strict type issues if types are missing
-            const prompt = new (Enquirer as any).AutoComplete({
-                name: 'target',
-                message: 'Navigate to:',
-                limit: 10,
-                choices: choices
-            });
-
-            const answer = await prompt.run();
-            await session.changeDirectory(answer);
-
+            await session.changeDirectory("/");
         } catch (e: any) {
-            // prompt cancelled (empty string or specific error)
-            if (e.toString().includes("is not fully supported")) {
-                console.log(chalk.red("Interactive mode not supported in this environment yet."));
-            }
+            console.error(chalk.red(e.message));
         }
         return;
     }

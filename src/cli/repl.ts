@@ -70,7 +70,12 @@ export async function startRepl(session: Session) {
                     await commands.tree(session, args);
                     break;
                 case 'edit':
-                    await commands.edit(session, args);
+                    rl.pause();
+                    try {
+                        await commands.edit(session, args);
+                    } finally {
+                        rl.resume();
+                    }
                     break;
                 case 'complete':
                     await commands.complete(session, args);
