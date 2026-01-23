@@ -66,25 +66,26 @@ Once inside the REPL, you can use the following commands:
 **Navigate and List:**
 ```bash
 > ls
-0. Projects
-1. Personal
-2. Archive
+[1] Projects
+[2] Personal
+[3] Archive
 
 > cd Projects
 > ls
-0. WorkflowyCLI
-1. Website
+[1] WorkflowyCLI
+[2] Website
 ```
 
 **Create and Edit:**
 ```bash
 > add "New Idea"
-> edit 2  # Opens default editor for "New Idea"
+> edit 1  # Opens default editor for the first item
 ```
 
 **Move Items:**
 ```bash
-> mv 2 0  # Moves item at index 2 to index 0
+> mv 2 ..  # Moves item 2 to the parent directory
+> mv 1 3   # Moves item 1 into item 3 (as child)
 ```
 
 ## Development

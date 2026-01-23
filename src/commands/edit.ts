@@ -57,12 +57,17 @@ export async function edit(session: Session, args: string[]) {
                         if (code === 0) {
                             const content = await fs.readFile(tmpFile, 'utf-8');
                             const lines = content.split('\n');
-                            const newName: string = lines[0] || ""; // Handle empty file
-                            const newNote = lines.slice(1).join('\n');
+                            const rawName = lines[0] || "";
+                            const rawNote = lines.slice(1).join('\n');
 
-                            if (!newName.trim()) {
+                            // Trim for comparison and storage
+                            const newName = rawName.trim();
+                            const newNote = rawNote.trim();
+                            const oldNote = (target.note || '').trim();
+
+                            if (!newName) {
                                 console.log(chalk.red("Name cannot be empty."));
-                            } else if (newName.trim() !== target.name || newNote.trim() !== (target.note || '')) {
+                            } else if (newName !== target.name || newNote !== oldNote) {
                                 await session.updateNode(target.id, { name: newName, note: newNote });
                                 console.log(chalk.green("Updated node."));
                             } else {

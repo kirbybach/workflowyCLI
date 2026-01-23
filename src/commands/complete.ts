@@ -16,13 +16,14 @@ export async function complete(session: Session, args: string[]) {
 
         const isCompleted = !!target.completedAt;
         if (isCompleted) {
-            console.log(chalk.yellow(`Already completed: ${target.name}`));
+            await session.uncompleteNode(target.id);
+            console.log(chalk.green(`Uncompleted: ${target.name}`));
         } else {
             await session.completeNode(target.id);
             console.log(chalk.green(`Completed: ${target.name}`));
         }
 
     } catch (e: any) {
-        console.error(chalk.red("Error completing node:"), e.message);
+        console.error(chalk.red("Error toggling completion:"), e.message);
     }
 }

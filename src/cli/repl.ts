@@ -92,17 +92,18 @@ export async function startRepl(session: Session) {
                 case 'help':
                     console.log(`
 Available commands:
-  ls [-a]      List items (hide completed by default, use -a to show all)
-  cd <dir>     Change directory
-  tree [-a]    Show tree structure
-  add <name>   Create item
-  rm <item>    Delete item
-  mv <src> <dst> Move item
-  copy [n]     Copy item n (or all) to clipboard
-  edit <item>  Edit item
-  complete <item> Toggle completion
-  refresh      Refresh
-  exit         Exit
+  ls [-a]           List items (hide completed by default, use -a to show all)
+  cd <dir>          Change directory (supports .., ~, /)
+  tree [-a] [n]     Show tree structure (n = depth)
+  add <name> [note] Create item with optional note
+  rm [-f] <item>    Delete item (-f to skip confirmation)
+  mv <src> <dst>    Move item (dst can be .., folder, or UUID)
+  copy [n]          Copy item n (or all) to clipboard
+  edit <item> [txt] Edit item (opens $EDITOR if no text provided)
+  complete <item>   Toggle completion status
+  refresh           Refresh current view
+  clear             Clear screen
+  exit              Exit
                     `);
                     break;
                 default:
