@@ -117,6 +117,25 @@ run_test "help command works" \
     "echo 'help' | node dist/index.js" \
     "Available commands"
 
+# --- JSON Output Tests ---
+echo -e "\n${YELLOW}=== JSON Output ===${NC}"
+
+run_test "ls --json outputs valid JSON" \
+    "echo 'ls --json' | node dist/index.js" \
+    '"children"'
+
+run_test "tree --json outputs nested data" \
+    "echo 'tree --json' | node dist/index.js" \
+    '"tree"'
+
+run_test "add --json returns node info" \
+    "echo 'add \"JSON Test\" --json' | node dist/index.js" \
+    '"success": true'
+
+run_test "help ls shows command help" \
+    "echo 'help ls' | node dist/index.js" \
+    "Usage: ls"
+
 # --- Summary ---
 echo ""
 echo "────────────────────────────────────────"

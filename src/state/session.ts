@@ -28,8 +28,12 @@ export class Session {
         return this.currentNodeId;
     }
 
+    getCurrentPath(): string {
+        return this.currentPath.map(p => p.name).join("/") || "/";
+    }
+
     getCurrentPathString(): string {
-        return this.currentPath.map(p => p.name).join("/");
+        return this.getCurrentPath();
     }
 
     getParentNodeId(): string | null {

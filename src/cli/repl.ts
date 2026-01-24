@@ -5,6 +5,15 @@ import boxen from 'boxen';
 import { Session } from '../state/session.js';
 import * as commands from '../commands/index.js';
 
+// Import commands to register them with the registry
+import '../commands/ls.js';
+import '../commands/tree.js';
+import '../commands/add.js';
+import '../commands/rm.js';
+import '../commands/complete.js';
+
+import { getCommand, parseArgs as registryParseArgs, generateHelpAll, generateHelp, getAllCommands } from '../commands/registry.js';
+
 export async function startRepl(session: Session) {
     const rl = readline.createInterface({
         input,
@@ -50,24 +59,21 @@ export async function startRepl(session: Session) {
         const [cmd, ...args] = parseArgs(line);
 
         try {
+            // Check if command is in registry
+            const cmdDef = getCommand(cmd!);
+            if (cmdDef) {
+                const ctx = registryParseArgs(cmdDef, args);
+                await cmdDef.handler(session, ctx);
+                continue;
+            }
+
+            // Fallback to legacy commands not yet migrated to registry
             switch (cmd) {
-                case 'ls':
-                    await commands.ls(session, args);
-                    break;
                 case 'cd':
                     await commands.cd(session, args);
                     break;
-                case 'add':
-                    await commands.add(session, args);
-                    break;
-                case 'rm':
-                    await commands.rm(session, args);
-                    break;
                 case 'mv':
                     await commands.mv(session, args);
-                    break;
-                case 'tree':
-                    await commands.tree(session, args);
                     break;
                 case 'edit':
                     rl.pause();
@@ -76,9 +82,6 @@ export async function startRepl(session: Session) {
                     } finally {
                         rl.resume();
                     }
-                    break;
-                case 'complete':
-                    await commands.complete(session, args);
                     break;
                 case 'refresh':
                     await commands.refresh(session);
@@ -90,21 +93,28 @@ export async function startRepl(session: Session) {
                     console.clear();
                     break;
                 case 'help':
-                    console.log(`
-Available commands:
-  ls [-a]           List items (hide completed by default, use -a to show all)
+                    // Check if help for specific command
+                    if (args.length > 0) {
+                        const helpCmd = getCommand(args[0]!);
+                        if (helpCmd) {
+                            console.log(generateHelp(helpCmd));
+                        } else {
+                            console.log(chalk.red(`Unknown command: ${args[0]}`));
+                        }
+                    } else {
+                        console.log(generateHelpAll());
+                        // Add non-registry commands manually
+                        console.log(`
+Also available:
   cd <dir>          Change directory (supports .., ~, /)
-  tree [-a] [n]     Show tree structure (n = depth)
-  add <name> [note] Create item with optional note
-  rm [-f] <item>    Delete item (-f to skip confirmation)
   mv <src> <dst>    Move item (dst can be .., folder, or UUID)
   copy [n]          Copy item n (or all) to clipboard
   edit <item> [txt] Edit item (opens $EDITOR if no text provided)
-  complete <item>   Toggle completion status
   refresh           Refresh current view
   clear             Clear screen
   exit              Exit
-                    `);
+                        `);
+                    }
                     break;
                 default:
                     console.log(chalk.red(`Unknown command: ${cmd}`));

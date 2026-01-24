@@ -1,5 +1,19 @@
-import { Session } from '../state/session.js';
 import chalk from 'chalk';
+import { Session } from '../state/session.js';
+import { registerCommand } from './registry.js';
+import type { CommandContext } from './registry.js';
+
+// Register the rm command
+registerCommand({
+    name: 'rm',
+    aliases: ['delete', 'del'],
+    description: 'Delete a node',
+    usage: 'rm [-f|--force] <target> [--json]',
+    args: [
+        { name: 'target', required: true, description: 'Index or name of node to delete' }
+    ],
+    handler: rmHandler
+});
 
 async function confirm(message: string): Promise<boolean> {
     return new Promise((resolve) => {
@@ -17,27 +31,38 @@ async function confirm(message: string): Promise<boolean> {
     });
 }
 
-export async function rm(session: Session, args: string[]) {
-    const force = args.includes('-f') || args.includes('--force');
-    const filteredArgs = args.filter(a => a !== '-f' && a !== '--force');
-
-    if (filteredArgs.length === 0) {
-        console.log(chalk.red("Usage: rm [-f|--force] <index> or <name>"));
+async function rmHandler(session: Session, { args, flags }: CommandContext): Promise<void> {
+    if (args.length === 0) {
+        if (flags.json) {
+            console.log(JSON.stringify({ error: 'Target is required' }, null, 2));
+            process.exitCode = 1;
+        } else {
+            console.log(chalk.red("Usage: rm [-f|--force] <target>"));
+        }
         return;
     }
 
     try {
-        const target = await session.resolveChild(filteredArgs[0]!);
+        const target = await session.resolveChild(args[0]!);
         if (!target) {
-            console.log(chalk.red(`Node not found: ${filteredArgs[0]}`));
+            if (flags.json) {
+                console.log(JSON.stringify({ error: `Node not found: ${args[0]}` }, null, 2));
+                process.exitCode = 1;
+            } else {
+                console.log(chalk.red(`Node not found: ${args[0]}`));
+            }
             return;
         }
 
-        if (!force) {
+        if (!flags.force) {
             // TTY check: fail fast in non-interactive mode
             if (!process.stdin.isTTY) {
-                console.error(chalk.red("Error: Cannot prompt for confirmation in non-interactive mode."));
-                console.error(chalk.red("Use -f or --force to delete without confirmation."));
+                const error = "Cannot prompt for confirmation in non-interactive mode. Use -f or --force.";
+                if (flags.json) {
+                    console.log(JSON.stringify({ error }, null, 2));
+                } else {
+                    console.error(chalk.red(`Error: ${error}`));
+                }
                 process.exitCode = 1;
                 return;
             }
@@ -56,9 +81,32 @@ export async function rm(session: Session, args: string[]) {
         }
 
         await session.deleteNode(target.id);
-        console.log(chalk.yellow(`Deleted: ${target.name}`));
+
+        if (flags.json) {
+            console.log(JSON.stringify({
+                success: true,
+                deleted: {
+                    id: target.id,
+                    name: target.name
+                }
+            }, null, 2));
+        } else {
+            console.log(chalk.yellow(`Deleted: ${target.name}`));
+        }
     } catch (e: any) {
-        console.error(chalk.red("Error deleting node:"), e.message);
+        if (flags.json) {
+            console.log(JSON.stringify({ error: e.message }, null, 2));
+            process.exitCode = 1;
+        } else {
+            console.error(chalk.red("Error deleting node:"), e.message);
+        }
     }
 }
 
+// Legacy export for backward compatibility
+export async function rm(session: Session, args: string[]) {
+    const { parseArgs, getCommand } = await import('./registry.js');
+    const def = getCommand('rm')!;
+    const ctx = parseArgs(def, args);
+    await rmHandler(session, ctx);
+}

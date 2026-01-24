@@ -1,13 +1,33 @@
-import { Session } from '../state/session.js';
 import chalk from 'chalk';
-import type { WorkflowyNode } from '../api/client.js';
+import { Session } from '../state/session.js';
+import { registerCommand } from './registry.js';
+import type { CommandContext } from './registry.js';
+import type { WorkflowyNode } from '../api/index.js';
 
-export async function tree(session: Session, args: string[]) {
-    // Usage: tree [depth]
-    const showAll = args.includes('-a');
+// Register the tree command
+registerCommand({
+    name: 'tree',
+    description: 'Show visual tree of children',
+    usage: 'tree [depth] [-a] [--json]',
+    args: [
+        { name: 'depth', required: false, description: 'Maximum depth to display (default: 2)' }
+    ],
+    flags: [
+        { name: 'all', alias: 'a', description: 'Show completed items', type: 'boolean' }
+    ],
+    handler: treeHandler
+});
 
+interface TreeNode {
+    id: string;
+    name: string;
+    note: string | null;
+    completed: boolean;
+    children?: TreeNode[];
+}
+
+async function treeHandler(session: Session, { args, flags }: CommandContext): Promise<void> {
     let maxDepth = 2;
-    // Find numeric arg
     const numArg = args.find(a => !isNaN(parseInt(a, 10)));
     if (numArg) {
         maxDepth = parseInt(numArg, 10);
@@ -15,29 +35,88 @@ export async function tree(session: Session, args: string[]) {
 
     try {
         const rootId = session.getCurrentNodeId();
-        console.log(chalk.blue(session.getCurrentPathString()));
 
-        await printNode(session, rootId, 0, maxDepth, "", showAll);
+        if (flags.json) {
+            // Build tree structure for JSON output
+            const treeData = await buildTreeJson(session, rootId, 0, maxDepth, flags.all as boolean);
+            const output = {
+                path: session.getCurrentPath(),
+                maxDepth,
+                tree: treeData
+            };
+            console.log(JSON.stringify(output, null, 2));
+            return;
+        }
+
+        // Pretty output
+        console.log(chalk.blue(session.getCurrentPathString()));
+        await printNode(session, rootId, 0, maxDepth, "", flags.all as boolean);
 
     } catch (e: any) {
-        console.error(chalk.red("Error showing tree:"), e.message);
+        if (flags.json) {
+            console.log(JSON.stringify({ error: e.message }, null, 2));
+            process.exitCode = 1;
+        } else {
+            console.error(chalk.red("Error showing tree:"), e.message);
+        }
     }
 }
 
-async function printNode(session: Session, nodeId: string, currentDepth: number, maxDepth: number, prefix: string = "", showAll: boolean) {
-    if (currentDepth >= maxDepth) return;
+async function buildTreeJson(
+    session: Session,
+    nodeId: string,
+    currentDepth: number,
+    maxDepth: number,
+    showAll: boolean
+): Promise<TreeNode[]> {
+    if (currentDepth >= maxDepth) return [];
 
-    // Fetch children of this node
-    // We reuse session.getChildren which caches.
     let children: WorkflowyNode[] = [];
     try {
         children = await session.getChildren(nodeId);
-    } catch (e) {
-        // failed to list children? accessible?
+    } catch {
+        return [];
+    }
+
+    const visibleChildren = children.filter(c => showAll || !c.completedAt);
+
+    const result: TreeNode[] = [];
+    for (const child of visibleChildren) {
+        const node: TreeNode = {
+            id: child.id,
+            name: child.name,
+            note: child.note || null,
+            completed: !!child.completedAt
+        };
+
+        const childNodes = await buildTreeJson(session, child.id, currentDepth + 1, maxDepth, showAll);
+        if (childNodes.length > 0) {
+            node.children = childNodes;
+        }
+
+        result.push(node);
+    }
+
+    return result;
+}
+
+async function printNode(
+    session: Session,
+    nodeId: string,
+    currentDepth: number,
+    maxDepth: number,
+    prefix: string = "",
+    showAll: boolean
+): Promise<void> {
+    if (currentDepth >= maxDepth) return;
+
+    let children: WorkflowyNode[] = [];
+    try {
+        children = await session.getChildren(nodeId);
+    } catch {
         return;
     }
 
-    // Filter children first
     const visibleChildren = children.filter(c => showAll || !c.completedAt);
     const count = visibleChildren.length;
 
@@ -53,8 +132,15 @@ async function printNode(session: Session, nodeId: string, currentDepth: number,
 
         console.log(`${prefix}${connector}${name}`);
 
-        // Recurse
         const newPrefix = prefix + (isLast ? "    " : "│   ");
         await printNode(session, child.id, currentDepth + 1, maxDepth, newPrefix, showAll);
     }
+}
+
+// Legacy export for backward compatibility
+export async function tree(session: Session, args: string[]) {
+    const { parseArgs, getCommand } = await import('./registry.js');
+    const def = getCommand('tree')!;
+    const ctx = parseArgs(def, args);
+    await treeHandler(session, ctx);
 }

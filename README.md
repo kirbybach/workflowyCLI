@@ -10,6 +10,7 @@ https://github.com/user-attachments/assets/eb7580ca-5296-4322-a5e4-5c9cb824a913
 
 -   **Interactive REPL**: Navigate your Workflowy tree like a file system.
 -   **File System Semantics**: Use familiar commands like `ls`, `cd`, `mv`, `rm`.
+-   **JSON Output**: All commands support `--json` for scripting and automation.
 -   **Rich Editing**: Edit notes using your preferred terminal editor ($EDITOR).
 -   **Visual Tree**: View your nested lists with a tree visualization.
 -   **Clipboard Support**: Copy nodes and their children to the clipboard.
@@ -48,25 +49,41 @@ or explicitly:
 wf repl
 ```
 
+### 3. Mock Mode
+
+Test without affecting your real Workflowy data:
+
+```bash
+wf --mock
+```
+
 ## Commands
 
 Once inside the REPL, you can use the following commands:
 
 | Command | Description | Usage |
 | :--- | :--- | :--- |
-| `ls` | List children of the current node | `ls` or `ls -a` (show completed) |
+| `ls` | List children of the current node | `ls [-a] [--json]` |
 | `cd` | Change current node context | `cd <name_or_index>` (supports `..`, `/`, `~`) |
-| `tree` | Show a visual tree of children | `tree` or `tree <depth>` |
-| `add` | Create a new node | `add <text>` or `add <text> <note>` |
-| `edit` | Edit a node's note in $EDITOR | `edit <index>` or `edit <index> <new_text>` |
+| `tree` | Show a visual tree of children | `tree [depth] [-a] [--json]` |
+| `add` | Create a new node | `add <text> [note] [--json]` |
+| `edit` | Edit a node's note in $EDITOR | `edit <index> [new_text]` |
 | `mv` | Move a node | `mv <source> <dest>` (dest can be `..`) |
-| `rm` | Delete a node | `rm <index>` or `rm -f <index>` (force) |
-| `complete` | Toggle completion status | `complete <index>` |
-| `copy` | Copy node content to clipboard | `copy <index>` or `copy` (all) |
+| `rm` | Delete a node | `rm [-f] <index> [--json]` |
+| `complete` | Toggle completion status | `complete <index> [--json]` |
+| `copy` | Copy node content to clipboard | `copy [index]` |
 | `refresh` | Refresh the current view | `refresh` |
 | `clear` | Clear the screen | `clear` |
-| `help` | Show available commands | `help` |
+| `help` | Show available commands | `help [command]` |
 | `exit` | Exit the REPL | `exit` or `Ctrl+C` |
+
+### Global Flags
+
+| Flag | Description |
+| :--- | :--- |
+| `--json` | Output as JSON (for scripting) |
+| `-f`, `--force` | Skip confirmation prompts |
+| `-a`, `--all` | Include completed items |
 
 ### Examples
 
@@ -103,6 +120,52 @@ Once inside the REPL, you can use the following commands:
 > ls -a       # Show all items including completed
 ```
 
+## JSON Output for Scripting
+
+All core commands support `--json` output for easy scripting and automation:
+
+```bash
+> ls --json
+{
+  "path": "/Projects",
+  "count": 3,
+  "children": [
+    { "index": 1, "id": "abc123", "name": "Task 1", "completed": false },
+    { "index": 2, "id": "def456", "name": "Task 2", "completed": true }
+  ]
+}
+
+> add "New Task" --json
+{
+  "success": true,
+  "node": { "id": "xyz789", "name": "New Task" }
+}
+
+> tree --json
+{
+  "path": "/",
+  "tree": [
+    { "name": "Projects", "children": [...] }
+  ]
+}
+```
+
+### Command Help
+
+Get detailed help for any command:
+
+```bash
+> help ls
+ls - List children of current node
+
+Usage: ls [-a] [--json]
+
+Flags:
+      --json         Output as JSON
+  -f, --force        Skip confirmations
+  -a, --all          Show completed items
+```
+
 ## Development
 
 To run the project in development mode:
@@ -113,10 +176,13 @@ npm run dev
 
 ### Mock Mode
 
-For testing without hitting the real Workflowy API, use mock mode:
+For testing without hitting the real Workflowy API:
 
 ```bash
-# Interactive mock mode
+# Using the --mock flag
+wf --mock
+
+# Or using npm scripts
 npm run dev:mock
 
 # Run integration tests
@@ -128,4 +194,5 @@ Mock mode uses a fake in-memory tree, perfect for development and testing.
 ## License
 
 MIT
+
 
