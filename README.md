@@ -9,8 +9,8 @@ A powerful command-line interface for Workflowy, allowing you to navigate and ma
 ## Features
 
 -   **Interactive REPL**: Navigate your Workflowy tree like a file system.
--   **Session Persistence**: Remembers your last location and command history between sessions.
--   **Bookmarks**: Quick shortcuts to jump between important projects or nodes.
+-   **Command History**: Remembers your command history between sessions.
+-   **Bookmarks**: Quick shortcuts to jump between important topics or nodes.
 -   **File System Semantics**: Use familiar commands like `ls`, `cd`, `mv`, `rm`, `cat`.
 -   **JSON Output**: All commands support `--json` for scripting and automation.
 -   **Rich Editing**: Edit notes using your preferred terminal editor ($EDITOR).
@@ -45,7 +45,7 @@ Start the interactive shell:
 wf
 ```
 
-The CLI will restore your last working directory and command history.
+The CLI starts at the root directory and restores your command history.
 
 ### 3. Bookmarks
 
@@ -67,7 +67,7 @@ Test without affecting your real Workflowy data:
 wf --mock
 ```
 > [!NOTE]
-> Session persistence and bookmarks are stored separately for Mock vs. Real modes to prevent state interference.
+> Bookmarks are stored separately for Mock vs. Real modes to prevent state interference.
 
 ### 5. Non-Interactive Commands
 
@@ -107,7 +107,7 @@ Once inside the REPL, you can use the following commands:
 | `mark` | Bookmark current location | `mark <name> [--json]` |
 | `goto` | Jump to a bookmarked location | `goto <name> [--json]` |
 | `mv` | Move a node | `mv <source> <dest> [--json]` |
-| `rm` | Delete a node | `rm [-f] <target> [--json]` |
+| `rm` | Delete a node (requires -f) | `rm -f <target> [--json]` |
 | `complete` | Toggle completion status | `complete <target> [--json]` |
 | `copy` | Copy node content to clipboard | `copy [index] [--json]` |
 | `find` | Search for nodes (local cache) | `find <query> [--notes] [--json]` |
@@ -122,7 +122,7 @@ Once inside the REPL, you can use the following commands:
 | Flag | Description |
 | :--- | :--- |
 | `--json` | Output as JSON (for scripting) |
-| `-f`, `--force` | Skip confirmation prompts |
+| `-f`, `--force` | Confirm deletion (required for `rm`) |
 | `-a`, `--all` | Include completed items |
 
 ### Examples
@@ -269,7 +269,7 @@ Usage: ls [-a] [--json]
 
 Flags:
       --json         Output as JSON
-  -f, --force        Skip confirmations
+  -f, --force        Confirm deletion (required)
   -a, --all          Show completed items
 ```
 
