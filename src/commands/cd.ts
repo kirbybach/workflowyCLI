@@ -1,23 +1,46 @@
 import { Session } from '../state/session.js';
 import chalk from 'chalk';
+import { registerCommand } from './registry.js';
+import type { CommandContext } from './registry.js';
 
-export async function cd(session: Session, args: string[]) {
-    // Usage: cd <target>
-    // Target can be ".." or name or index
+registerCommand({
+    name: 'cd',
+    description: 'Change current directory',
+    usage: 'cd <path> [--json]',
+    args: [
+        { name: 'path', required: false, description: 'Path to navigate to (default: /)' }
+    ],
+    flags: [
+        { name: 'json', description: 'Output as JSON', type: 'boolean' }
+    ],
+    handler: cdHandler
+});
 
-    if (args.length === 0) {
-        try {
-            await session.changeDirectory("/");
-        } catch (e: any) {
-            console.error(chalk.red(e.message));
-        }
-        return;
+async function cdHandler(session: Session, { args, flags }: CommandContext) {
+    let target = "/";
+
+    if (args.length > 0) {
+        // Allow unquoted spaces by joining args
+        target = args.join(" ");
     }
 
-    const target = args.join(" "); // Allow spaces in names
     try {
         await session.changeDirectory(target);
+
+        if (flags.json) {
+            console.log(JSON.stringify({
+                success: true,
+                path: session.getCurrentPathString()
+            }, null, 2));
+        } else {
+            // cd is usually silent on success
+        }
     } catch (e: any) {
-        console.error(chalk.red(e.message));
+        if (flags.json) {
+            console.log(JSON.stringify({ error: e.message }));
+        } else {
+            console.error(chalk.red(e.message));
+        }
     }
 }
+

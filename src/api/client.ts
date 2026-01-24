@@ -21,16 +21,8 @@ const config = new Conf<{ apiKey: string }>({
     projectName: 'workflowycli'
 });
 
-// Base URL for V1 API
-const BASE_URL = "https://beta.workflowy.com/api/v1";
-// Note: Doc said beta.workflowy.com/api-reference/ usually points to beta, but endpoints might be workflowy.com?
-// Summaries showed: curl -G https://workflowy.com/api/v1/nodes
-// Use workflowy.com as primary? Or beta?
-// The curl example said `workflowy.com`. The documentation URL was `beta.workflowy.com`.
-// I'll stick to `workflowy.com` but maybe beta is safer for API?
-// Let's use `https://workflowy.com/api/v1` as seen in the curl example.
-// Actually the summary text I read earlier: "curl -G https://workflowy.com/api/v1/nodes"
-// So I will use that.
+// Base URL for V1 API (production endpoint)
+const BASE_URL = "https://workflowy.com/api/v1";
 
 export class WorkflowyClient {
     private apiKey: string | undefined;
@@ -48,7 +40,7 @@ export class WorkflowyClient {
         return this.apiKey;
     }
 
-    private async request(endpoint: string, options: RequestInit = {}): Promise<any> {
+    private async request(endpoint: string, options: RequestInit = {}, retries = 3): Promise<any> {
         if (!this.apiKey) {
             throw new Error("API Key not found. Please log in first.");
         }
@@ -61,6 +53,16 @@ export class WorkflowyClient {
         };
 
         const response = await fetch(url, { ...options, headers });
+
+        if (response.status === 429) {
+            if (retries > 0) {
+                // Exponential backoff: 1s, 2s, 4s
+                const delay = Math.pow(2, 4 - retries) * 1000;
+                // console.warn(`Rate limit hit. Retrying in ${delay}ms...`); // Optional logging
+                await new Promise(resolve => setTimeout(resolve, delay));
+                return this.request(endpoint, options, retries - 1);
+            }
+        }
 
         if (!response.ok) {
             throw new Error(`API Error: ${response.status} ${response.statusText}`);

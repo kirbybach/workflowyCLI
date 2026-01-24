@@ -3,13 +3,23 @@ import { stdin as input, stdout as output } from 'node:process';
 import chalk from 'chalk';
 import boxen from 'boxen';
 import { Session } from '../state/session.js';
-import * as commands from '../commands/index.js';
+import Conf from 'conf';
+
+import { getCommand, parseArgs as registryParseArgs, generateHelpAll, generateHelp } from '../commands/registry.js';
+
+const config = new Conf({
+    projectName: 'workflowycli-history',
+    clearInvalidConfig: true
+});
 
 export async function startRepl(session: Session) {
+    const history = config.get('history', []) as string[];
+
     const rl = readline.createInterface({
         input,
         output,
         terminal: true,
+        historySize: 100,
         completer: (async (line: string) => {
             try {
                 return await getSuggestionsAsync(session, line);
@@ -18,6 +28,9 @@ export async function startRepl(session: Session) {
             }
         }) as any
     });
+
+    // Load history
+    (rl as any).history = history;
 
     rl.on('SIGINT', () => {
         // Clear current line using process.stdout directly
@@ -44,76 +57,32 @@ export async function startRepl(session: Session) {
         if (!line) continue;
 
         if (line === 'exit' || line === 'quit') {
+            config.set('history', (rl as any).history);
             break;
         }
 
         const [cmd, ...args] = parseArgs(line);
 
         try {
-            switch (cmd) {
-                case 'ls':
-                    await commands.ls(session, args);
-                    break;
-                case 'cd':
-                    await commands.cd(session, args);
-                    break;
-                case 'add':
-                    await commands.add(session, args);
-                    break;
-                case 'rm':
-                    await commands.rm(session, args);
-                    break;
-                case 'mv':
-                    await commands.mv(session, args);
-                    break;
-                case 'tree':
-                    await commands.tree(session, args);
-                    break;
-                case 'edit':
-                    rl.pause();
-                    try {
-                        await commands.edit(session, args);
-                    } finally {
-                        rl.resume();
-                    }
-                    break;
-                case 'complete':
-                    await commands.complete(session, args);
-                    break;
-                case 'refresh':
-                    await commands.refresh(session);
-                    break;
-                case 'copy':
-                    await commands.copy(session, args);
-                    break;
-                case 'clear':
-                    console.clear();
-                    break;
-                case 'help':
-                    console.log(`
-Available commands:
-  ls [-a]           List items (hide completed by default, use -a to show all)
-  cd <dir>          Change directory (supports .., ~, /)
-  tree [-a] [n]     Show tree structure (n = depth)
-  add <name> [note] Create item with optional note
-  rm [-f] <item>    Delete item (-f to skip confirmation)
-  mv <src> <dst>    Move item (dst can be .., folder, or UUID)
-  copy [n]          Copy item n (or all) to clipboard
-  edit <item> [txt] Edit item (opens $EDITOR if no text provided)
-  complete <item>   Toggle completion status
-  refresh           Refresh current view
-  clear             Clear screen
-  exit              Exit
-                    `);
-                    break;
-                default:
-                    console.log(chalk.red(`Unknown command: ${cmd}`));
+            // Check if command is in registry
+            const cmdDef = getCommand(cmd!);
+            if (cmdDef) {
+                rl.pause();
+                try {
+                    const ctx = registryParseArgs(cmdDef, args);
+                    await cmdDef.handler(session, ctx);
+                } finally {
+                    rl.resume();
+                }
+            } else {
+                console.log(chalk.red(`Unknown command: ${cmd}`));
             }
         } catch (e: any) {
             console.error(chalk.red("Error:"), e.message);
         }
     }
 
+    config.set('history', (rl as any).history);
     rl.close();
 }
 

@@ -1,5 +1,9 @@
-import { WorkflowyClient } from '../api/client.js';
-import type { WorkflowyNode } from '../api/client.js';
+import type { IWorkflowyClient, WorkflowyNode } from '../api/index.js';
+import { TreeSyncService, type SearchResult, type SearchOptions } from './sync.js';
+import Conf from 'conf';
+import { isMockMode } from '../api/index.js';
+
+const PROJECT_NAME = 'workflowycli-session';
 
 interface PathSegment {
     id: string; // Node ID
@@ -7,31 +11,70 @@ interface PathSegment {
 }
 
 export class Session {
-    private client: WorkflowyClient;
+    private client: IWorkflowyClient;
+    private syncService: TreeSyncService;
 
-    // Core Navigation State
     private currentPath: PathSegment[] = [];
     private currentNodeId: string = "None"; // Default start (Root)
 
     private nodeCache: Map<string, WorkflowyNode[]> = new Map();
+    private config: Conf<{ lastPath: PathSegment[] }>;
 
-    constructor(client: WorkflowyClient) {
+    constructor(client: IWorkflowyClient) {
         this.client = client;
+        this.syncService = new TreeSyncService(client);
+
+        const suffix = isMockMode() ? '-mock' : '';
+        this.config = new Conf({
+            projectName: `${PROJECT_NAME}${suffix}`,
+            clearInvalidConfig: true
+        });
     }
+
+    // --- Search & Sync Delegation ---
+
+    async forceSync(showProgress = false): Promise<void> {
+        await this.syncService.forceSync({ showProgress });
+    }
+
+    async search(query: string, options?: SearchOptions): Promise<SearchResult[]> {
+        // Ensure we have data (stale-while-revalidate)
+        const { tree, syncingInBackground } = await this.syncService.getTree();
+
+        // If syncing in background for the first time or tree is empty, we might want to wait?
+        // But getTree blocks if no cache exists. So we are good.
+
+        return this.syncService.search(query, options);
+    }
+
 
     async init() {
-        if (!this.client.getApiKey()) {
-            throw new Error("No API Key set.");
+        if (process.env.WF_RESET) {
+            this.config.clear();
         }
-        this.currentPath = [{ id: "None", name: "/" }];
+
+        // API key validation moved to index.ts entry point
+        const saved = this.config.get('lastPath');
+        if (saved && Array.isArray(saved) && saved.length > 0) {
+            this.currentPath = saved;
+            this.currentNodeId = saved[saved.length - 1]!.id;
+        } else {
+            this.currentPath = [{ id: "None", name: "/" }];
+            this.currentNodeId = "None";
+        }
     }
+
 
     getCurrentNodeId(): string {
         return this.currentNodeId;
     }
 
+    getCurrentPath(): string {
+        return this.currentPath.map(p => p.name).join("/") || "/";
+    }
+
     getCurrentPathString(): string {
-        return this.currentPath.map(p => p.name).join("/");
+        return this.getCurrentPath();
     }
 
     getParentNodeId(): string | null {
@@ -47,8 +90,27 @@ export class Session {
     }
 
     async getChildren(nodeId: string = this.currentNodeId, forceRefresh = false): Promise<WorkflowyNode[]> {
+        // 1. Check strict node cache (fastest)
         if (!forceRefresh && this.nodeCache.has(nodeId)) {
             return this.nodeCache.get(nodeId)!;
+        }
+
+        // 2. Check sync service cache (full tree)
+        if (!forceRefresh) {
+            const fullTree = this.syncService.getInMemoryTree();
+            if (fullTree) {
+                const cachedNode = this.findInTree(fullTree, nodeId);
+                if (cachedNode && cachedNode.ch) {
+                    // Update simple cache while we are here
+                    this.nodeCache.set(nodeId, cachedNode.ch);
+                    return cachedNode.ch;
+                }
+                // If it's root ("None")
+                if (nodeId === "None") {
+                    this.nodeCache.set(nodeId, fullTree);
+                    return fullTree;
+                }
+            }
         }
 
         try {
@@ -63,30 +125,86 @@ export class Session {
         }
     }
 
-    async changeDirectory(arg: string) {
-        if (arg === "..") {
-            if (this.currentPath.length > 1) {
-                this.currentPath.pop();
-                const parent = this.currentPath[this.currentPath.length - 1];
-                if (parent) {
-                    this.currentNodeId = parent.id;
-                }
-                return;
-            } else {
-                return;
+    private findInTree(nodes: WorkflowyNode[], targetId: string): WorkflowyNode | null {
+        for (const node of nodes) {
+            if (node.id === targetId) return node;
+            if (node.ch) {
+                const found = this.findInTree(node.ch, targetId);
+                if (found) return found;
+            }
+        }
+        return null;
+    }
+
+    async jumpToNodeId(nodeId: string, pathHint?: string): Promise<void> {
+        // Strategy A: Check sync service for exact path
+        let found = this.syncService.findNodeById(nodeId);
+
+        // Strategy B: Optimistic Hint check
+        if (!found && pathHint) {
+            try {
+                // Try navigating to hint
+                await this.changeDirectory(pathHint);
+                if (this.currentNodeId === nodeId) return; // Success!
+                // If not match, maybe renamed. Continue to Strategy C.
+            } catch (e) {
+                // Hint failed
             }
         }
 
-        // Handle "cd ~" or "cd /"
+        // Strategy C: Force Sync and try A again
+        if (!found) {
+            console.log("Node not found in cache. Syncing...");
+            await this.syncService.forceSync();
+            found = this.syncService.findNodeById(nodeId);
+        }
+
+        if (found) {
+            // Reconstruct path string
+            // PathSegment[] -> string. Root is typically implicit or empty.
+            // My paths usually start with Root ("/" with ID "None").
+            // SyncService path excludes Root? Let's check search behavior.
+            // searchRecursive starts with path=[]. 
+            // If match is deep, path is [{id, name}, ...].
+            // We need to convert this to "/Project/Item".
+
+            // Assuming root is implicit.
+            const pathStr = "/" + found.path.map(p => p.name).join("/");
+            try {
+                await this.changeDirectory(pathStr);
+                return;
+            } catch (e: any) {
+                // Should not happen if sync is correct, unless path string issues
+                console.error("Constructed path failed:", pathStr);
+                throw e;
+            }
+        }
+
+        throw new Error(`Bookmark target (ID: ${nodeId}) not found after sync.`);
+    }
+
+    async changeDirectory(arg: string) {
         if (arg === "~" || arg === "/") {
             this.currentPath = [{ id: "None", name: "/" }];
             this.currentNodeId = "None";
+            this.config.set('lastPath', this.currentPath);
             return;
         }
 
-        const target = await this.resolveChild(arg);
+        // First try to resolve the path
+        let target = await this.resolvePath(arg);
+
+        // If relative path fails and contains '/', try as absolute from root
+        if (!target && !arg.startsWith('/') && arg.includes('/')) {
+            target = await this.resolvePath('/' + arg);
+            if (target) {
+                arg = '/' + arg; // Update arg for walkAndChange
+            }
+        }
+
         if (target) {
-            this.enterNode(target);
+            await this.walkAndChange(arg);
+            this.config.set('lastPath', this.currentPath);
         } else {
             throw new Error(`Directory not found: ${arg}`);
         }
@@ -97,8 +215,87 @@ export class Session {
         this.currentPath.push({ id: node.id, name: node.name });
     }
 
+    // Walks the path and updates state step-by-step to maintain breadcrumbs
+    private async walkAndChange(pathStr: string) {
+        // Handle absolute start
+        if (pathStr.startsWith('/')) {
+            this.currentPath = [{ id: "None", name: "/" }];
+            this.currentNodeId = "None";
+            pathStr = pathStr.slice(1);
+        }
+
+        const segments = pathStr.split('/').filter(s => s && s !== '.');
+
+        for (const segment of segments) {
+            if (segment === '..') {
+                if (this.currentPath.length > 1) {
+                    this.currentPath.pop();
+                    const parent = this.currentPath[this.currentPath.length - 1];
+                    if (parent) this.currentNodeId = parent.id;
+                }
+                continue;
+            }
+
+            const nextNode = await this.resolveOneLevel(this.currentNodeId, segment);
+            if (!nextNode) {
+                throw new Error(`Path segment not found: ${segment}`);
+            }
+            this.enterNode(nextNode);
+        }
+    }
+
+    // Resolves a path to a node without changing state
+    async resolvePath(pathStr: string): Promise<WorkflowyNode | null> {
+        let currentId = this.currentNodeId;
+
+        if (pathStr.startsWith('/')) {
+            currentId = "None"; // Root
+            pathStr = pathStr.slice(1);
+        }
+
+        if (pathStr === "~") return { id: "None", name: "/" } as any;
+
+        const segments = pathStr.split('/').filter(s => s && s !== '.');
+        let currentNode: WorkflowyNode | null = null;
+
+        // If start at root, we need to mock a root node if filtered out?
+        // Actually resolveOneLevel needs a parentId.
+
+        if (segments.length === 0 && currentId === "None") {
+            return { id: "None", name: "/" } as any;
+        }
+
+        for (const segment of segments) {
+            if (segment === '..') {
+                // Not supported in pure resolution without parent context, 
+                // unless we cache parents or fetching parent ID.
+                // Session has getParentNodeId() but that relies on breadcrumbs 
+                // which match currentId only if we start from currentId.
+                // Supporting '..' in arbitrary paths is hard without back-links.
+                // We'll skip specific '..' support for now in arbitrary paths unless it's supported by cached breadcrumbs logic.
+                // For now, simplified: '..' only works relative to CWD in changeDirectory, not general paths?
+                // Or we assume we can't resolve '..' easily.
+                return null;
+            }
+
+            const nextNode = await this.resolveOneLevel(currentId, segment);
+            if (!nextNode) return null;
+
+            currentNode = nextNode;
+            currentId = nextNode.id;
+        }
+
+        return currentNode;
+    }
+
+    // Legacy alias, acts as resolvePath now
     async resolveChild(arg: string): Promise<WorkflowyNode | null> {
-        const children = await this.getChildren(this.currentNodeId);
+        return this.resolvePath(arg);
+    }
+
+    // Core resolution logic for a single segment
+    async resolveOneLevel(parentId: string, arg: string): Promise<WorkflowyNode | null> {
+        const children = await this.getChildren(parentId);
 
         // 1. Try Index
         const index = parseInt(arg, 10);
@@ -114,7 +311,11 @@ export class Session {
             return exactMatches[0] || null;
         }
 
-        // 3. Fuzzy
+        // 3. UUID Match
+        const uuidMatch = children.find(c => c.id === arg);
+        if (uuidMatch) return uuidMatch;
+
+        // 4. Fuzzy
         const fuzzyMatches = children.filter(c => c.name.toLowerCase().startsWith(arg.toLowerCase()));
         if (fuzzyMatches.length === 1) {
             return fuzzyMatches[0] || null;
