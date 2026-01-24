@@ -69,8 +69,27 @@ export class Session {
     }
 
     async getChildren(nodeId: string = this.currentNodeId, forceRefresh = false): Promise<WorkflowyNode[]> {
+        // 1. Check strict node cache (fastest)
         if (!forceRefresh && this.nodeCache.has(nodeId)) {
             return this.nodeCache.get(nodeId)!;
+        }
+
+        // 2. Check sync service cache (full tree)
+        if (!forceRefresh) {
+            const fullTree = this.syncService.getInMemoryTree();
+            if (fullTree) {
+                const cachedNode = this.findInTree(fullTree, nodeId);
+                if (cachedNode && cachedNode.ch) {
+                    // Update simple cache while we are here
+                    this.nodeCache.set(nodeId, cachedNode.ch);
+                    return cachedNode.ch;
+                }
+                // If it's root ("None")
+                if (nodeId === "None") {
+                    this.nodeCache.set(nodeId, fullTree);
+                    return fullTree;
+                }
+            }
         }
 
         try {
@@ -83,6 +102,17 @@ export class Session {
             console.error("Failed to fetch node children:", error);
             throw error;
         }
+    }
+
+    private findInTree(nodes: WorkflowyNode[], targetId: string): WorkflowyNode | null {
+        for (const node of nodes) {
+            if (node.id === targetId) return node;
+            if (node.ch) {
+                const found = this.findInTree(node.ch, targetId);
+                if (found) return found;
+            }
+        }
+        return null;
     }
 
     async changeDirectory(arg: string) {

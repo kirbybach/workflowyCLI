@@ -190,7 +190,7 @@ run_test "wf find works (cached)" \
     '"name": "Projects"'
 
 run_test "wf find with limit" \
-    "node dist/index.js find 'task' --limit 1 --json" \
+    "node dist/index.js find 'bug' --limit 1 --json" \
     '"count": 1'
 
 # --- Summary ---

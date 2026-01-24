@@ -40,7 +40,7 @@ export class WorkflowyClient {
         return this.apiKey;
     }
 
-    private async request(endpoint: string, options: RequestInit = {}): Promise<any> {
+    private async request(endpoint: string, options: RequestInit = {}, retries = 3): Promise<any> {
         if (!this.apiKey) {
             throw new Error("API Key not found. Please log in first.");
         }
@@ -53,6 +53,16 @@ export class WorkflowyClient {
         };
 
         const response = await fetch(url, { ...options, headers });
+
+        if (response.status === 429) {
+            if (retries > 0) {
+                // Exponential backoff: 1s, 2s, 4s
+                const delay = Math.pow(2, 4 - retries) * 1000;
+                // console.warn(`Rate limit hit. Retrying in ${delay}ms...`); // Optional logging
+                await new Promise(resolve => setTimeout(resolve, delay));
+                return this.request(endpoint, options, retries - 1);
+            }
+        }
 
         if (!response.ok) {
             throw new Error(`API Error: ${response.status} ${response.statusText}`);

@@ -95,6 +95,8 @@ Once inside the REPL, you can use the following commands:
 | `rm` | Delete a node | `rm [-f] <index> [--json]` |
 | `complete` | Toggle completion status | `complete <index> [--json]` |
 | `copy` | Copy node content to clipboard | `copy [index]` |
+| `find` | Search for nodes (local cache) | `find <query> [--notes]` |
+| `sync` | Force full tree sync | `sync` |
 | `refresh` | Refresh the current view | `refresh` |
 | `clear` | Clear the screen | `clear` |
 | `help` | Show available commands | `help [command]` |
@@ -141,6 +143,19 @@ Once inside the REPL, you can use the following commands:
 > complete 1  # Mark as complete
 > complete 1  # Toggle back to incomplete
 > ls -a       # Show all items including completed
+```
+
+**Instant Search:**
+```bash
+> sync  # Force initial full sync
+> find "idea"
+[1] /Projects/New Idea
+    New Idea
+
+> find "urgent" -n  # Search notes too
+[1] /Tasks/Deploy
+    Deploy to prod
+    (Note matches: It is very urgent)
 ```
 
 ## JSON Output for Scripting

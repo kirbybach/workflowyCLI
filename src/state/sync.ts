@@ -171,6 +171,11 @@ export class TreeSyncService {
         }
     }
 
+    // Expose for hybrid caching
+    getInMemoryTree(): WorkflowyNode[] | null {
+        return this.inMemoryTree;
+    }
+
     /**
      * Recursively fetch the tree
      */
@@ -186,16 +191,13 @@ export class TreeSyncService {
         }
 
         // Recursively fetch descendants
-        // Concurrency limit of 5 parallel requests to avoid 429s
-        const CONCURRENCY = 5;
+        // Concurrency limit of 2 parallel requests to avoid 429s (was 5)
+        const CONCURRENCY = 2;
         for (let i = 0; i < children.length; i += CONCURRENCY) {
             const batch = children.slice(i, i + CONCURRENCY);
             await Promise.all(batch.map(async (child) => {
-                // Only fetch children if we think it has them? 
-                // Using Workflowy API v1, do we know if it has children without fetching?
-                // Probably not, unless `ch` is pre-populated (which it isn't usually).
-                // We have to fetch to be sure.
-                // Optimally we'd only fetch if needed, but for "Full Sync" we want everything.
+                // If we encounter 429s, the client will handle backoff.
+                // We just need to be gentle here.
                 child.ch = await this.fetchFullTree(child.id, onProgress, runningCount);
             }));
         }
