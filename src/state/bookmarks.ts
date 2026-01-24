@@ -1,4 +1,5 @@
 import Conf from 'conf';
+import { isMockMode } from '../api/mock-client.js';
 
 export interface Bookmark {
     name: string;
@@ -7,15 +8,21 @@ export interface Bookmark {
     createdAt: number;
 }
 
-const config = new Conf<{ bookmarks: Bookmark[] }>({
-    projectName: 'workflowycli-bookmarks',
-    clearInvalidConfig: true
-});
+const PROJECT_NAME = 'workflowycli-bookmarks';
 
 export class BookmarkService {
+    private config: Conf<{ bookmarks: Bookmark[] }>;
+
+    constructor() {
+        const suffix = isMockMode() ? '-mock' : '';
+        this.config = new Conf({
+            projectName: `${PROJECT_NAME}${suffix}`,
+            clearInvalidConfig: true
+        });
+    }
 
     list(): Bookmark[] {
-        return config.get('bookmarks', []);
+        return this.config.get('bookmarks', []);
     }
 
     save(name: string, nodeId: string, path: string): void {
@@ -35,7 +42,7 @@ export class BookmarkService {
             bookmarks.push(newBookmark);
         }
 
-        config.set('bookmarks', bookmarks);
+        this.config.set('bookmarks', bookmarks);
     }
 
     get(name: string): Bookmark | undefined {
@@ -48,7 +55,7 @@ export class BookmarkService {
         const filtered = bookmarks.filter(b => b.name !== name);
 
         if (filtered.length !== initialLen) {
-            config.set('bookmarks', filtered);
+            this.config.set('bookmarks', filtered);
             return true;
         }
         return false;

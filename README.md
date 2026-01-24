@@ -9,7 +9,9 @@ https://github.com/user-attachments/assets/eb7580ca-5296-4322-a5e4-5c9cb824a913
 ## Features
 
 -   **Interactive REPL**: Navigate your Workflowy tree like a file system.
--   **File System Semantics**: Use familiar commands like `ls`, `cd`, `mv`, `rm`.
+-   **Session Persistence**: Remembers your last location and command history between sessions.
+-   **Bookmarks**: Quick shortcuts to jump between important projects or nodes.
+-   **File System Semantics**: Use familiar commands like `ls`, `cd`, `mv`, `rm`, `cat`.
 -   **JSON Output**: All commands support `--json` for scripting and automation.
 -   **Rich Editing**: Edit notes using your preferred terminal editor ($EDITOR).
 -   **Visual Tree**: View your nested lists with a tree visualization.
@@ -43,21 +45,31 @@ Start the interactive shell:
 wf
 ```
 
-or explicitly:
+The CLI will restore your last working directory and command history.
+
+### 3. Bookmarks
+
+Save shortcuts to deep folders you use often:
 
 ```bash
-wf repl
+# Save current location as a bookmark
+wf mark home
+
+# Jump back to that location later
+wf goto home
 ```
 
-### 3. Mock Mode
+### 4. Mock Mode
 
 Test without affecting your real Workflowy data:
 
 ```bash
 wf --mock
 ```
+> [!NOTE]
+> Session persistence and bookmarks are stored separately for Mock vs. Real modes to prevent state interference.
 
-### 4. Non-Interactive Commands
+### 5. Non-Interactive Commands
 
 Run commands directly without entering the REPL (great for scripting):
 
@@ -71,8 +83,8 @@ wf ls Projects
 # Add a new item
 wf add "New Task"
 
-# Add to a specific path
-wf add "Sub Task" -p Projects/WorkflowyCLI
+# View node content and notes
+wf cat Projects/WorkflowyCLI
 
 # Get JSON output for scripting
 wf ls --json
@@ -87,17 +99,20 @@ Once inside the REPL, you can use the following commands:
 | Command | Description | Usage |
 | :--- | :--- | :--- |
 | `ls` | List children of the current node | `ls [-a] [--json]` |
-| `cd` | Change current node context | `cd <name_or_index>` (supports `..`, `/`, `~`) |
+| `cd` | Change current node context | `cd <path>` (supports `..`, `/`, `[index]`) |
 | `tree` | Show a visual tree of children | `tree [depth] [-a] [--json]` |
 | `add` | Create a new node | `add <text> [note] [--json]` |
-| `edit` | Edit a node's note in $EDITOR | `edit <index> [new_text]` |
-| `mv` | Move a node | `mv <source> <dest>` (dest can be `..`) |
-| `rm` | Delete a node | `rm [-f] <index> [--json]` |
-| `complete` | Toggle completion status | `complete <index> [--json]` |
-| `copy` | Copy node content to clipboard | `copy [index]` |
-| `find` | Search for nodes (local cache) | `find <query> [--notes]` |
-| `sync` | Force full tree sync | `sync` |
-| `refresh` | Refresh the current view | `refresh` |
+| `edit` | Edit a node's note in $EDITOR | `edit <target> [new_text] [--json]` |
+| `cat` | Display node details (name and note) | `cat <target> [--json]` |
+| `mark` | Bookmark current location | `mark <name> [--json]` |
+| `goto` | Jump to a bookmarked location | `goto <name> [--json]` |
+| `mv` | Move a node | `mv <source> <dest> [--json]` |
+| `rm` | Delete a node | `rm [-f] <target> [--json]` |
+| `complete` | Toggle completion status | `complete <target> [--json]` |
+| `copy` | Copy node content to clipboard | `copy [index] [--json]` |
+| `find` | Search for nodes (local cache) | `find <query> [--notes] [--json]` |
+| `sync` | Force full tree sync | `sync [--json]` |
+| `refresh` | Refresh the current view | `refresh [--json]` |
 | `clear` | Clear the screen | `clear` |
 | `help` | Show available commands | `help [command]` |
 | `exit` | Exit the REPL | `exit` or `Ctrl+C` |
@@ -117,31 +132,40 @@ Once inside the REPL, you can use the following commands:
 > ls
 [1] Projects
 [2] Personal
-[3] Archive
 
 > cd Projects
 > ls
 [1] WorkflowyCLI
-[2] Website
+[2] Blog
 ```
 
-**Create and Edit:**
+**Bookmarks & Jumping:**
 ```bash
-> add "New Idea"
-> add "Task" "This is a note for the task"
-> edit 1  # Opens default editor for the first item
+> mark dev  # Saved current location as 'dev'
+> cd /
+> goto dev  # Instantly back to /Projects/WorkflowyCLI
+```
+
+**Viewing & Editing:**
+```bash
+> cat 1
+WorkflowyCLI
+This node contains the CLI development tasks.
+
+> add "Task" "Need to fix bug"
+> edit 1 "Updated Task Name"  # Quick rename
+> edit 1                      # Opens $EDITOR for full content
 ```
 
 **Move Items:**
 ```bash
 > mv 2 ..  # Moves item 2 to the parent directory
-> mv 1 3   # Moves item 1 into item 3 (as child)
+> mv 1 2   # Moves item 1 into item 2 (as child)
 ```
 
 **Complete Items:**
 ```bash
 > complete 1  # Mark as complete
-> complete 1  # Toggle back to incomplete
 > ls -a       # Show all items including completed
 ```
 
@@ -151,11 +175,6 @@ Once inside the REPL, you can use the following commands:
 > find "idea"
 [1] /Projects/New Idea
     New Idea
-
-> find "urgent" -n  # Search notes too
-[1] /Tasks/Deploy
-    Deploy to prod
-    (Note matches: It is very urgent)
 ```
 
 ## JSON Output for Scripting

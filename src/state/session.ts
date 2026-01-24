@@ -1,11 +1,9 @@
 import type { IWorkflowyClient, WorkflowyNode } from '../api/index.js';
 import { TreeSyncService, type SearchResult, type SearchOptions } from './sync.js';
 import Conf from 'conf';
+import { isMockMode } from '../api/index.js';
 
-const config = new Conf<{ lastPath: PathSegment[] }>({
-    projectName: 'workflowycli-session',
-    clearInvalidConfig: true
-});
+const PROJECT_NAME = 'workflowycli-session';
 
 interface PathSegment {
     id: string; // Node ID
@@ -16,15 +14,21 @@ export class Session {
     private client: IWorkflowyClient;
     private syncService: TreeSyncService;
 
-    // Core Navigation State
     private currentPath: PathSegment[] = [];
     private currentNodeId: string = "None"; // Default start (Root)
 
     private nodeCache: Map<string, WorkflowyNode[]> = new Map();
+    private config: Conf<{ lastPath: PathSegment[] }>;
 
     constructor(client: IWorkflowyClient) {
         this.client = client;
         this.syncService = new TreeSyncService(client);
+
+        const suffix = isMockMode() ? '-mock' : '';
+        this.config = new Conf({
+            projectName: `${PROJECT_NAME}${suffix}`,
+            clearInvalidConfig: true
+        });
     }
 
     // --- Search & Sync Delegation ---
@@ -46,11 +50,11 @@ export class Session {
 
     async init() {
         if (process.env.WF_RESET) {
-            config.clear();
+            this.config.clear();
         }
 
         // API key validation moved to index.ts entry point
-        const saved = config.get('lastPath');
+        const saved = this.config.get('lastPath');
         if (saved && Array.isArray(saved) && saved.length > 0) {
             this.currentPath = saved;
             this.currentNodeId = saved[saved.length - 1]!.id;
@@ -183,7 +187,7 @@ export class Session {
         if (arg === "~" || arg === "/") {
             this.currentPath = [{ id: "None", name: "/" }];
             this.currentNodeId = "None";
-            config.set('lastPath', this.currentPath);
+            this.config.set('lastPath', this.currentPath);
             return;
         }
 
@@ -208,7 +212,7 @@ export class Session {
             // Alternative: changeDirectory walks step by step and updates currentPath.
 
             await this.walkAndChange(arg);
-            config.set('lastPath', this.currentPath);
+            this.config.set('lastPath', this.currentPath);
         } else {
             throw new Error(`Directory not found: ${arg}`);
         }
