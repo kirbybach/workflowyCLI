@@ -1,5 +1,4 @@
-import { WorkflowyClient } from '../api/client.js';
-import type { WorkflowyNode } from '../api/client.js';
+import type { IWorkflowyClient, WorkflowyNode } from '../api/index.js';
 
 interface PathSegment {
     id: string; // Node ID
@@ -7,7 +6,7 @@ interface PathSegment {
 }
 
 export class Session {
-    private client: WorkflowyClient;
+    private client: IWorkflowyClient;
 
     // Core Navigation State
     private currentPath: PathSegment[] = [];
@@ -15,16 +14,15 @@ export class Session {
 
     private nodeCache: Map<string, WorkflowyNode[]> = new Map();
 
-    constructor(client: WorkflowyClient) {
+    constructor(client: IWorkflowyClient) {
         this.client = client;
     }
 
     async init() {
-        if (!this.client.getApiKey()) {
-            throw new Error("No API Key set.");
-        }
+        // API key validation moved to index.ts entry point
         this.currentPath = [{ id: "None", name: "/" }];
     }
+
 
     getCurrentNodeId(): string {
         return this.currentNodeId;

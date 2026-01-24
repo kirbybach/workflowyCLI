@@ -18,11 +18,11 @@ async function confirm(message: string): Promise<boolean> {
 }
 
 export async function rm(session: Session, args: string[]) {
-    const force = args.includes('-f');
-    const filteredArgs = args.filter(a => a !== '-f');
+    const force = args.includes('-f') || args.includes('--force');
+    const filteredArgs = args.filter(a => a !== '-f' && a !== '--force');
 
     if (filteredArgs.length === 0) {
-        console.log(chalk.red("Usage: rm [-f] <index> or <name>"));
+        console.log(chalk.red("Usage: rm [-f|--force] <index> or <name>"));
         return;
     }
 
@@ -34,7 +34,20 @@ export async function rm(session: Session, args: string[]) {
         }
 
         if (!force) {
-            const confirmed = await confirm(`Delete "${target.name}"? (y/N) `);
+            // TTY check: fail fast in non-interactive mode
+            if (!process.stdin.isTTY) {
+                console.error(chalk.red("Error: Cannot prompt for confirmation in non-interactive mode."));
+                console.error(chalk.red("Use -f or --force to delete without confirmation."));
+                process.exitCode = 1;
+                return;
+            }
+
+            // Get child count for warning
+            const children = await session.getChildren(target.id);
+            const childCount = children.length;
+            const childWarning = childCount > 0 ? ` (${childCount} children)` : '';
+
+            const confirmed = await confirm(`Delete "${target.name}"${childWarning}? (y/N) `);
             console.log(); // newline after answer
             if (!confirmed) {
                 console.log(chalk.gray("Cancelled."));
@@ -48,3 +61,4 @@ export async function rm(session: Session, args: string[]) {
         console.error(chalk.red("Error deleting node:"), e.message);
     }
 }
+

@@ -21,16 +21,8 @@ const config = new Conf<{ apiKey: string }>({
     projectName: 'workflowycli'
 });
 
-// Base URL for V1 API
-const BASE_URL = "https://beta.workflowy.com/api/v1";
-// Note: Doc said beta.workflowy.com/api-reference/ usually points to beta, but endpoints might be workflowy.com?
-// Summaries showed: curl -G https://workflowy.com/api/v1/nodes
-// Use workflowy.com as primary? Or beta?
-// The curl example said `workflowy.com`. The documentation URL was `beta.workflowy.com`.
-// I'll stick to `workflowy.com` but maybe beta is safer for API?
-// Let's use `https://workflowy.com/api/v1` as seen in the curl example.
-// Actually the summary text I read earlier: "curl -G https://workflowy.com/api/v1/nodes"
-// So I will use that.
+// Base URL for V1 API (production endpoint)
+const BASE_URL = "https://workflowy.com/api/v1";
 
 export class WorkflowyClient {
     private apiKey: string | undefined;

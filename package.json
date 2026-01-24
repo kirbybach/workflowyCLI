@@ -7,9 +7,11 @@
     "wf": "./dist/index.js"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "npm run build && ./scripts/test-integration.sh",
+    "test:mock": "WF_MOCK=1 node dist/index.js",
     "build": "tsc",
-    "dev": "node --loader ts-node/esm src/index.ts"
+    "dev": "node --loader ts-node/esm src/index.ts",
+    "dev:mock": "WF_MOCK=1 node --loader ts-node/esm src/index.ts"
   },
   "keywords": [],
   "author": "",

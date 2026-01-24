@@ -54,15 +54,18 @@ Once inside the REPL, you can use the following commands:
 
 | Command | Description | Usage |
 | :--- | :--- | :--- |
-| `ls` | List children of the current node | `ls` |
-| `cd` | Change current node context | `cd <node_name_or_index>` (supports `..`) |
+| `ls` | List children of the current node | `ls` or `ls -a` (show completed) |
+| `cd` | Change current node context | `cd <name_or_index>` (supports `..`, `/`, `~`) |
 | `tree` | Show a visual tree of children | `tree` or `tree <depth>` |
-| `add` | Create a new node | `add <text>` |
-| `edit` | Edit a node's note in $EDITOR | `edit <index>` |
-| `mv` | Move a node | `mv <source_index> <dest_index>` |
-| `rm` | Delete a node | `rm <index>` |
-| `copy` | Copy node content to clipboard | `copy <index>` |
+| `add` | Create a new node | `add <text>` or `add <text> <note>` |
+| `edit` | Edit a node's note in $EDITOR | `edit <index>` or `edit <index> <new_text>` |
+| `mv` | Move a node | `mv <source> <dest>` (dest can be `..`) |
+| `rm` | Delete a node | `rm <index>` or `rm -f <index>` (force) |
+| `complete` | Toggle completion status | `complete <index>` |
+| `copy` | Copy node content to clipboard | `copy <index>` or `copy` (all) |
 | `refresh` | Refresh the current view | `refresh` |
+| `clear` | Clear the screen | `clear` |
+| `help` | Show available commands | `help` |
 | `exit` | Exit the REPL | `exit` or `Ctrl+C` |
 
 ### Examples
@@ -83,6 +86,7 @@ Once inside the REPL, you can use the following commands:
 **Create and Edit:**
 ```bash
 > add "New Idea"
+> add "Task" "This is a note for the task"
 > edit 1  # Opens default editor for the first item
 ```
 
@@ -90,6 +94,13 @@ Once inside the REPL, you can use the following commands:
 ```bash
 > mv 2 ..  # Moves item 2 to the parent directory
 > mv 1 3   # Moves item 1 into item 3 (as child)
+```
+
+**Complete Items:**
+```bash
+> complete 1  # Mark as complete
+> complete 1  # Toggle back to incomplete
+> ls -a       # Show all items including completed
 ```
 
 ## Development
@@ -100,6 +111,21 @@ To run the project in development mode:
 npm run dev
 ```
 
+### Mock Mode
+
+For testing without hitting the real Workflowy API, use mock mode:
+
+```bash
+# Interactive mock mode
+npm run dev:mock
+
+# Run integration tests
+npm test
+```
+
+Mock mode uses a fake in-memory tree, perfect for development and testing.
+
 ## License
 
 MIT
+
