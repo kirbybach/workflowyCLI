@@ -207,6 +207,56 @@ All core commands support `--json` output for easy scripting and automation:
 }
 ```
 
+## Export & Import
+
+Export your Workflowy data in multiple formats:
+
+```bash
+# Export as markdown
+wf export /Projects --format=markdown > backup.md
+
+# Export as JSON
+wf export --format=json > backup.json
+
+# Export as OPML (for interoperability)
+wf export --format=opml > backup.opml
+
+# Import from stdin
+cat tasks.json | wf import --format=json
+echo "- Task 1\n  - Subtask" | wf import --format=markdown
+```
+
+## MCP Server (AI Agent Integration)
+
+WorkflowyCLI includes an MCP (Model Context Protocol) server, allowing AI agents like Claude to use your Workflowy as a tool.
+
+### Setup
+
+Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "workflowy": {
+      "command": "wf",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+### Available Tools
+
+| Tool | Description |
+| :--- | :--- |
+| `wf_ls` | List children at a path |
+| `wf_tree` | Get tree structure with depth |
+| `wf_add` | Create a new node |
+| `wf_rm` | Delete a node |
+| `wf_complete` | Toggle completion status |
+| `wf_find` | Search for nodes |
+| `wf_export` | Export subtree to JSON/markdown |
+
 ### Command Help
 
 Get detailed help for any command:

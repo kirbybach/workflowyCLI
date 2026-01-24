@@ -27,10 +27,23 @@ async function addHandler(session: Session, { args, flags }: CommandContext): Pr
         return;
     }
 
-    const name = args[0]!;
+    let name = args[0]!;
     const note = args.length > 1 ? args[1] : undefined;
 
     try {
+        // Support path syntax: add Parent/Child/NewNode
+        // The last segment is the new node name, parent segments are the path
+        if (name.includes('/')) {
+            const segments = name.split('/').filter(s => s);
+            if (segments.length > 1) {
+                // Last segment is the node name
+                name = segments.pop()!;
+                // Rest is the parent path
+                const parentPath = segments.join('/');
+                await session.changeDirectory(parentPath);
+            }
+        }
+
         const parentId = session.getCurrentNodeId();
         const newNode = await session.createNode(parentId, name, note);
 

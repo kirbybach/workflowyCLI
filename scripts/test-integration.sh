@@ -224,6 +224,37 @@ run_test "wf goto uses bookmark" \
     "node dist/index.js goto test_bm --json" \
     '"success": true'
 
+# --- Sprint 5 Tests (Automation) ---
+echo -e "\n${YELLOW}=== Sprint 5 (Automation) ===${NC}"
+
+run_test "wf export --format=json" \
+    "node dist/index.js export 1 --format=json" \
+    '"name":'
+
+run_test "wf export --format=markdown" \
+    "node dist/index.js export 1 --format=markdown" \
+    "Add search feature"
+
+run_test "wf export --format=opml" \
+    "node dist/index.js export 1 --format=opml" \
+    "<opml"
+
+run_test "wf export (default=markdown)" \
+    "node dist/index.js export" \
+    "Projects"
+
+run_test "wf import JSON from stdin" \
+    "echo '[{\"name\":\"Imported\"}]' | node dist/index.js import --format=json --json" \
+    '"imported": 1'
+
+run_test "wf import markdown from stdin" \
+    "printf 'Item A\n  - Sub A' | node dist/index.js import --format=markdown --json" \
+    '"imported":'
+
+run_test "wf mcp shows in help" \
+    "node dist/index.js --help" \
+    "mcp"
+
 # --- Persistence Tests ---
 echo -e "\n${YELLOW}=== Persistence Tests ===${NC}"
 

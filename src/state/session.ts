@@ -191,26 +191,18 @@ export class Session {
             return;
         }
 
-        const target = await this.resolvePath(arg);
+        // First try to resolve the path
+        let target = await this.resolvePath(arg);
+
+        // If relative path fails and contains '/', try as absolute from root
+        if (!target && !arg.startsWith('/') && arg.includes('/')) {
+            target = await this.resolvePath('/' + arg);
+            if (target) {
+                arg = '/' + arg; // Update arg for walkAndChange
+            }
+        }
+
         if (target) {
-            // Reconstruct the path array for the breadcrumbs
-            // This is expensive (root -> target), so for now we just 
-            // set the current ID. Ideally we should fetch the lineage.
-            // For simple relative navigation we can reconstruct if we resolved step-by-step.
-
-            // To properly update breadcrumbs, we need the full path to the target.
-            // If it was a relative move into a child, we push.
-            // If absolute, we might need to rebuild.
-            // For now, let's just properly handle the "navigate into child" case nicely,
-            // and for jumps, we might lose intermediate breadcrumbs or need to fetch them.
-
-            // Simplified approach: If it's a direct child, push to path.
-            // If it's complex, we might need a "getParenthood" API which we don't have yet.
-            // BUT: We can track the path traversal if we do it step by step.
-
-            // Let's rely on resolvePath to do the resolution, but navigation update is tricky.
-            // Alternative: changeDirectory walks step by step and updates currentPath.
-
             await this.walkAndChange(arg);
             this.config.set('lastPath', this.currentPath);
         } else {
