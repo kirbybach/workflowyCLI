@@ -12,6 +12,8 @@ import './commands/tree.js';
 import './commands/add.js';
 import './commands/rm.js';
 import './commands/complete.js';
+import './commands/find.js';
+import './commands/sync.js';
 
 import { getCommand, parseArgs } from './commands/registry.js';
 
@@ -216,6 +218,60 @@ program
 
             const cmdDef = getCommand('complete')!;
             const args: string[] = [target];
+            if (options.json) args.push('--json');
+
+            const ctx = parseArgs(cmdDef, args);
+            await cmdDef.handler(session, ctx);
+        } catch (e: any) {
+            if (options.json) {
+                console.log(JSON.stringify({ error: e.message }));
+            } else {
+                console.error(`Error: ${e.message}`);
+            }
+            process.exit(1);
+        }
+    });
+
+program
+    .command('find <query>')
+    .description('Search for nodes')
+    .option('-n, --notes', 'Include notes in search')
+    .option('-l, --limit <number>', 'Limit results')
+    .option('--sync', 'Force sync before searching')
+    .option('--json', 'Output as JSON')
+    .action(async (query, options) => {
+        try {
+            const session = await createSession();
+
+            const cmdDef = getCommand('find')!;
+            const args: string[] = [query];
+            if (options.notes) args.push('--notes');
+            if (options.limit) args.push('--limit', options.limit);
+            if (options.sync) args.push('--sync');
+            if (options.json) args.push('--json');
+
+            const ctx = parseArgs(cmdDef, args);
+            await cmdDef.handler(session, ctx);
+        } catch (e: any) {
+            if (options.json) {
+                console.log(JSON.stringify({ error: e.message }));
+            } else {
+                console.error(`Error: ${e.message}`);
+            }
+            process.exit(1);
+        }
+    });
+
+program
+    .command('sync')
+    .description('Force a full tree sync')
+    .option('--json', 'Output as JSON')
+    .action(async (options) => {
+        try {
+            const session = await createSession();
+
+            const cmdDef = getCommand('sync')!;
+            const args: string[] = [];
             if (options.json) args.push('--json');
 
             const ctx = parseArgs(cmdDef, args);

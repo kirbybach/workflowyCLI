@@ -178,6 +178,21 @@ run_test "wf ls nested path /Projects/WorkflowyCLI" \
     "node dist/index.js ls /Projects/WorkflowyCLI" \
     "Add search feature"
 
+# --- Search & Sync Tests ---
+echo -e "\n${YELLOW}=== Search & Sync ===${NC}"
+
+run_test "wf sync runs" \
+    "node dist/index.js sync --json" \
+    '"success": true'
+
+run_test "wf find works (cached)" \
+    "node dist/index.js find 'Projects' --json" \
+    '"name": "Projects"'
+
+run_test "wf find with limit" \
+    "node dist/index.js find 'task' --limit 1 --json" \
+    '"count": 1'
+
 # --- Summary ---
 echo ""
 echo "────────────────────────────────────────"

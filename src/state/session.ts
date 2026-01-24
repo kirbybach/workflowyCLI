@@ -1,4 +1,5 @@
 import type { IWorkflowyClient, WorkflowyNode } from '../api/index.js';
+import { TreeSyncService, type SearchResult, type SearchOptions } from './sync.js';
 
 interface PathSegment {
     id: string; // Node ID
@@ -7,6 +8,7 @@ interface PathSegment {
 
 export class Session {
     private client: IWorkflowyClient;
+    private syncService: TreeSyncService;
 
     // Core Navigation State
     private currentPath: PathSegment[] = [];
@@ -16,7 +18,25 @@ export class Session {
 
     constructor(client: IWorkflowyClient) {
         this.client = client;
+        this.syncService = new TreeSyncService(client);
     }
+
+    // --- Search & Sync Delegation ---
+
+    async forceSync(showProgress = false): Promise<void> {
+        await this.syncService.forceSync({ showProgress });
+    }
+
+    async search(query: string, options?: SearchOptions): Promise<SearchResult[]> {
+        // Ensure we have data (stale-while-revalidate)
+        const { tree, syncingInBackground } = await this.syncService.getTree();
+
+        // If syncing in background for the first time or tree is empty, we might want to wait?
+        // But getTree blocks if no cache exists. So we are good.
+
+        return this.syncService.search(query, options);
+    }
+
 
     async init() {
         // API key validation moved to index.ts entry point
