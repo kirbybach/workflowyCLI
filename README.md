@@ -57,6 +57,29 @@ Test without affecting your real Workflowy data:
 wf --mock
 ```
 
+### 4. Non-Interactive Commands
+
+Run commands directly without entering the REPL (great for scripting):
+
+```bash
+# List items at root
+wf ls
+
+# List items at a path
+wf ls Projects
+
+# Add a new item
+wf add "New Task"
+
+# Add to a specific path
+wf add "Sub Task" -p Projects/WorkflowyCLI
+
+# Get JSON output for scripting
+wf ls --json
+wf tree --json
+wf add "Task" --json
+```
+
 ## Commands
 
 Once inside the REPL, you can use the following commands:

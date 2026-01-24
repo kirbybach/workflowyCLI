@@ -66,29 +66,33 @@ export class Session {
     }
 
     async changeDirectory(arg: string) {
-        if (arg === "..") {
-            if (this.currentPath.length > 1) {
-                this.currentPath.pop();
-                const parent = this.currentPath[this.currentPath.length - 1];
-                if (parent) {
-                    this.currentNodeId = parent.id;
-                }
-                return;
-            } else {
-                return;
-            }
-        }
-
-        // Handle "cd ~" or "cd /"
         if (arg === "~" || arg === "/") {
             this.currentPath = [{ id: "None", name: "/" }];
             this.currentNodeId = "None";
             return;
         }
 
-        const target = await this.resolveChild(arg);
+        const target = await this.resolvePath(arg);
         if (target) {
-            this.enterNode(target);
+            // Reconstruct the path array for the breadcrumbs
+            // This is expensive (root -> target), so for now we just 
+            // set the current ID. Ideally we should fetch the lineage.
+            // For simple relative navigation we can reconstruct if we resolved step-by-step.
+
+            // To properly update breadcrumbs, we need the full path to the target.
+            // If it was a relative move into a child, we push.
+            // If absolute, we might need to rebuild.
+            // For now, let's just properly handle the "navigate into child" case nicely,
+            // and for jumps, we might lose intermediate breadcrumbs or need to fetch them.
+
+            // Simplified approach: If it's a direct child, push to path.
+            // If it's complex, we might need a "getParenthood" API which we don't have yet.
+            // BUT: We can track the path traversal if we do it step by step.
+
+            // Let's rely on resolvePath to do the resolution, but navigation update is tricky.
+            // Alternative: changeDirectory walks step by step and updates currentPath.
+
+            await this.walkAndChange(arg);
         } else {
             throw new Error(`Directory not found: ${arg}`);
         }
@@ -99,8 +103,87 @@ export class Session {
         this.currentPath.push({ id: node.id, name: node.name });
     }
 
+    // Walks the path and updates state step-by-step to maintain breadcrumbs
+    private async walkAndChange(pathStr: string) {
+        // Handle absolute start
+        if (pathStr.startsWith('/')) {
+            this.currentPath = [{ id: "None", name: "/" }];
+            this.currentNodeId = "None";
+            pathStr = pathStr.slice(1);
+        }
+
+        const segments = pathStr.split('/').filter(s => s && s !== '.');
+
+        for (const segment of segments) {
+            if (segment === '..') {
+                if (this.currentPath.length > 1) {
+                    this.currentPath.pop();
+                    const parent = this.currentPath[this.currentPath.length - 1];
+                    if (parent) this.currentNodeId = parent.id;
+                }
+                continue;
+            }
+
+            const nextNode = await this.resolveOneLevel(this.currentNodeId, segment);
+            if (!nextNode) {
+                throw new Error(`Path segment not found: ${segment}`);
+            }
+            this.enterNode(nextNode);
+        }
+    }
+
+    // Resolves a path to a node without changing state
+    async resolvePath(pathStr: string): Promise<WorkflowyNode | null> {
+        let currentId = this.currentNodeId;
+
+        if (pathStr.startsWith('/')) {
+            currentId = "None"; // Root
+            pathStr = pathStr.slice(1);
+        }
+
+        if (pathStr === "~") return { id: "None", name: "/" } as any;
+
+        const segments = pathStr.split('/').filter(s => s && s !== '.');
+        let currentNode: WorkflowyNode | null = null;
+
+        // If start at root, we need to mock a root node if filtered out?
+        // Actually resolveOneLevel needs a parentId.
+
+        if (segments.length === 0 && currentId === "None") {
+            return { id: "None", name: "/" } as any;
+        }
+
+        for (const segment of segments) {
+            if (segment === '..') {
+                // Not supported in pure resolution without parent context, 
+                // unless we cache parents or fetching parent ID.
+                // Session has getParentNodeId() but that relies on breadcrumbs 
+                // which match currentId only if we start from currentId.
+                // Supporting '..' in arbitrary paths is hard without back-links.
+                // We'll skip specific '..' support for now in arbitrary paths unless it's supported by cached breadcrumbs logic.
+                // For now, simplified: '..' only works relative to CWD in changeDirectory, not general paths?
+                // Or we assume we can't resolve '..' easily.
+                return null;
+            }
+
+            const nextNode = await this.resolveOneLevel(currentId, segment);
+            if (!nextNode) return null;
+
+            currentNode = nextNode;
+            currentId = nextNode.id;
+        }
+
+        return currentNode;
+    }
+
+    // Legacy alias, acts as resolvePath now
     async resolveChild(arg: string): Promise<WorkflowyNode | null> {
-        const children = await this.getChildren(this.currentNodeId);
+        return this.resolvePath(arg);
+    }
+
+    // Core resolution logic for a single segment
+    async resolveOneLevel(parentId: string, arg: string): Promise<WorkflowyNode | null> {
+        const children = await this.getChildren(parentId);
 
         // 1. Try Index
         const index = parseInt(arg, 10);
@@ -116,7 +199,11 @@ export class Session {
             return exactMatches[0] || null;
         }
 
-        // 3. Fuzzy
+        // 3. UUID Match
+        const uuidMatch = children.find(c => c.id === arg);
+        if (uuidMatch) return uuidMatch;
+
+        // 4. Fuzzy
         const fuzzyMatches = children.filter(c => c.name.toLowerCase().startsWith(arg.toLowerCase()));
         if (fuzzyMatches.length === 1) {
             return fuzzyMatches[0] || null;

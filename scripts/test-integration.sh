@@ -136,6 +136,48 @@ run_test "help ls shows command help" \
     "echo 'help ls' | node dist/index.js" \
     "Usage: ls"
 
+# --- Non-Interactive Commands ---
+echo -e "\n${YELLOW}=== Non-Interactive Commands ===${NC}"
+
+run_test "wf ls (non-interactive)" \
+    "node dist/index.js ls" \
+    "Projects"
+
+run_test "wf ls --json (non-interactive)" \
+    "node dist/index.js ls --json" \
+    '"children"'
+
+run_test "wf ls <path> navigates" \
+    "node dist/index.js ls Projects" \
+    "WorkflowyCLI"
+
+run_test "wf add creates node" \
+    "node dist/index.js add 'CLI Test' --json" \
+    '"success": true'
+
+run_test "wf tree shows hierarchy" \
+    "node dist/index.js tree 1" \
+    "Projects"
+
+run_test "wf add accepts piped input" \
+    "echo 'Piped Node' | node dist/index.js add - --json" \
+    '"name": "Piped Node"'
+
+# --- Path Resolution Tests ---
+echo -e "\n${YELLOW}=== Path Resolution ===${NC}"
+
+run_test "wf ls /Projects works (absolute)" \
+    "node dist/index.js ls /Projects" \
+    "WorkflowyCLI"
+
+run_test "wf add to relative path" \
+    "node dist/index.js add 'Nested Item' -p Projects --json" \
+    '"success": true'
+
+run_test "wf ls nested path /Projects/WorkflowyCLI" \
+    "node dist/index.js ls /Projects/WorkflowyCLI" \
+    "Add search feature"
+
 # --- Summary ---
 echo ""
 echo "────────────────────────────────────────"
