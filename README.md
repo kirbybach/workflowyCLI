@@ -3,7 +3,7 @@
 A powerful command-line interface for Workflowy, allowing you to navigate and manipulate your Workflowy nodes directly from the terminal.
 
 
-https://github.com/user-attachments/assets/eb7580ca-5296-4322-a5e4-5c9cb824a913
+![wf2](https://github.com/user-attachments/assets/040b53a7-2fbc-4d7c-b7b7-af6487b96dad)
 
 
 ## Features
