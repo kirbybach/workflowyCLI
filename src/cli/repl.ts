@@ -120,13 +120,14 @@ Available commands:
 function parseArgs(str: string): string[] {
     const args: string[] = [];
     let current = '';
-    let inQuote = false;
+    let quoteChar: string | null = null; // Track which quote character is active
 
     for (let i = 0; i < str.length; i++) {
         const char = str[i];
-        if (char === '"') {
-            inQuote = !inQuote;
-        } else if (char === ' ' && !inQuote) {
+        if ((char === '"' || char === "'") && (quoteChar === null || quoteChar === char)) {
+            // Toggle quote state for matching quote type
+            quoteChar = quoteChar === null ? char : null;
+        } else if (char === ' ' && quoteChar === null) {
             if (current) args.push(current);
             current = '';
         } else {
@@ -140,14 +141,14 @@ function parseArgs(str: string): string[] {
 
 async function getSuggestionsAsync(session: Session, line: string): Promise<[string[], string]> {
     // 1. Parse line to find the current argument being typed
-    let inQuote = false;
+    let quoteChar: string | null = null;
     let currentArgStart = 0;
 
     for (let i = 0; i < line.length; i++) {
         const char = line[i];
-        if (char === '"') {
-            inQuote = !inQuote;
-        } else if (char === ' ' && !inQuote) {
+        if ((char === '"' || char === "'") && (quoteChar === null || quoteChar === char)) {
+            quoteChar = quoteChar === null ? char : null;
+        } else if (char === ' ' && quoteChar === null) {
             currentArgStart = i + 1;
         }
     }
@@ -171,19 +172,24 @@ async function getSuggestionsAsync(session: Session, line: string): Promise<[str
         const names = children.map((c: any) => c.name);
 
         let searchStr = currentArg;
-        let isQuoted = false;
+        let usedQuote: string | null = null;
 
         if (currentArg.startsWith('"')) {
-            isQuoted = true;
+            usedQuote = '"';
+            searchStr = currentArg.slice(1);
+        } else if (currentArg.startsWith("'")) {
+            usedQuote = "'";
             searchStr = currentArg.slice(1);
         }
 
         const matches = names.filter((n: string) => n.startsWith(searchStr));
 
         // Re-format matches. If it needs quotes (has space) or was already quoted, wrap in quotes.
+        // Use the same quote character that was started, or default to double quotes.
         const finalMatches = matches.map((n: string) => {
-            if (n.includes(' ') || isQuoted) {
-                return `"${n}"`;
+            if (n.includes(' ') || usedQuote) {
+                const q = usedQuote || '"';
+                return `${q}${n}${q}`;
             }
             return n;
         });
