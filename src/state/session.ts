@@ -49,19 +49,9 @@ export class Session {
 
 
     async init() {
-        if (process.env.WF_RESET) {
-            this.config.clear();
-        }
-
-        // API key validation moved to index.ts entry point
-        const saved = this.config.get('lastPath');
-        if (saved && Array.isArray(saved) && saved.length > 0) {
-            this.currentPath = saved;
-            this.currentNodeId = saved[saved.length - 1]!.id;
-        } else {
-            this.currentPath = [{ id: "None", name: "/" }];
-            this.currentNodeId = "None";
-        }
+        // Always start at root
+        this.currentPath = [{ id: "None", name: "/" }];
+        this.currentNodeId = "None";
     }
 
 
@@ -187,7 +177,6 @@ export class Session {
         if (arg === "~" || arg === "/") {
             this.currentPath = [{ id: "None", name: "/" }];
             this.currentNodeId = "None";
-            this.config.set('lastPath', this.currentPath);
             return;
         }
 
@@ -204,7 +193,6 @@ export class Session {
 
         if (target) {
             await this.walkAndChange(arg);
-            this.config.set('lastPath', this.currentPath);
         } else {
             throw new Error(`Directory not found: ${arg}`);
         }

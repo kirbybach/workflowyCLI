@@ -255,21 +255,6 @@ run_test "wf mcp shows in help" \
     "node dist/index.js --help" \
     "mcp"
 
-# --- Persistence Tests ---
-echo -e "\n${YELLOW}=== Persistence Tests ===${NC}"
-
-# 1. Set state (with reset to ensure clean start)
-WF_RESET=1 node dist/index.js cd Projects
-
-# 2. Verify state persists (unset RESET)
-unset WF_RESET
-run_test "wf persists session (cwd)" \
-    "node dist/index.js ls" \
-    "WorkflowyCLI"
-
-# 3. Restore safety
-export WF_RESET=1
-
 # --- Summary ---
 echo ""
 echo "────────────────────────────────────────"
