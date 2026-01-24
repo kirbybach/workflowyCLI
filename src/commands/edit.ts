@@ -4,29 +4,63 @@ import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
 import { spawn } from 'child_process';
+import { registerCommand } from './registry.js';
+import type { CommandContext } from './registry.js';
 
-export async function edit(session: Session, args: string[]) {
-    if (args.length === 0) {
-        console.log(chalk.red("Usage: edit <target> [new_text]"));
-        return;
-    }
+registerCommand({
+    name: 'edit',
+    description: 'Edit a node\'s name or note',
+    usage: 'edit <target> [new_text] [--json]',
+    args: [
+        { name: 'target', required: true, description: 'Node to edit (name, index, or ID)' },
+        { name: 'new_text', required: false, description: 'New name (if provided, skips editor)' }
+    ],
+    flags: [
+        { name: 'json', description: 'Output as JSON', type: 'boolean' }
+    ],
+    handler: editHandler
+});
 
+async function editHandler(session: Session, { args, flags }: CommandContext) {
     try {
-        const target = await session.resolveChild(args[0]!);
+        // args[0] is target, args[1...] is new text
+        const targetArg = args[0]!;
+        const target = await session.resolvePath(targetArg); // Moved to resolvePath
+
         if (!target) {
-            console.log(chalk.red(`Node not found: ${args[0]}`));
-            return;
+            throw new Error(`Node not found: ${targetArg}`);
         }
 
         if (args.length > 1) {
+            // Quick rename without editor
             const newName = args.slice(1).join(" ");
             await session.updateNode(target.id, { name: newName });
-            console.log(chalk.green(`Renamed to: ${newName}`));
+
+            if (flags.json) {
+                console.log(JSON.stringify({
+                    success: true,
+                    id: target.id,
+                    oldName: target.name,
+                    newName
+                }, null, 2));
+            } else {
+                console.log(chalk.green(`Renamed to: ${newName}`));
+            }
         } else {
+            // Interactive Editor
+            if (flags.json) {
+                // Interactive mode not supported with --json usually, unless we just print info?
+                // Or maybe we treat it as "fetching content for edit"?
+                // Standard behavior: json flag implies automation, so invoking interactive editor implies failure or bad usage?
+                // But for now, let's allow it but fail if not TTY?
+                throw new Error("Cannot use interactive editor with --json flag. Provide new_text argument.");
+            }
+
             const editor = process.env.EDITOR || 'vim';
             const tmpDir = os.tmpdir();
             const tmpFile = path.join(tmpDir, `workflowy_edit_${target.id}.md`);
 
+            // Use simplified content structure
             const initialContent = `${target.name}\n${target.note || ''}`;
             await fs.writeFile(tmpFile, initialContent);
 
@@ -60,7 +94,6 @@ export async function edit(session: Session, args: string[]) {
                             const rawName = lines[0] || "";
                             const rawNote = lines.slice(1).join('\n');
 
-                            // Trim for comparison and storage
                             const newName = rawName.trim();
                             const newNote = rawNote.trim();
                             const oldNote = (target.note || '').trim();
@@ -86,8 +119,12 @@ export async function edit(session: Session, args: string[]) {
                 });
             });
         }
-
     } catch (e: any) {
-        console.error(chalk.red("Error editing node:"), e.message);
+        if (flags.json) {
+            console.log(JSON.stringify({ error: e.message }));
+        } else {
+            console.error(chalk.red("Error editing node:"), e.message);
+        }
     }
 }
+

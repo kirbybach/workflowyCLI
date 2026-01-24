@@ -3,16 +3,8 @@ import { stdin as input, stdout as output } from 'node:process';
 import chalk from 'chalk';
 import boxen from 'boxen';
 import { Session } from '../state/session.js';
-import * as commands from '../commands/index.js';
 
-// Import commands to register them with the registry
-import '../commands/ls.js';
-import '../commands/tree.js';
-import '../commands/add.js';
-import '../commands/rm.js';
-import '../commands/complete.js';
-
-import { getCommand, parseArgs as registryParseArgs, generateHelpAll, generateHelp, getAllCommands } from '../commands/registry.js';
+import { getCommand, parseArgs as registryParseArgs, generateHelpAll, generateHelp } from '../commands/registry.js';
 
 export async function startRepl(session: Session) {
     const rl = readline.createInterface({
@@ -62,62 +54,15 @@ export async function startRepl(session: Session) {
             // Check if command is in registry
             const cmdDef = getCommand(cmd!);
             if (cmdDef) {
-                const ctx = registryParseArgs(cmdDef, args);
-                await cmdDef.handler(session, ctx);
-                continue;
-            }
-
-            // Fallback to legacy commands not yet migrated to registry
-            switch (cmd) {
-                case 'cd':
-                    await commands.cd(session, args);
-                    break;
-                case 'mv':
-                    await commands.mv(session, args);
-                    break;
-                case 'edit':
-                    rl.pause();
-                    try {
-                        await commands.edit(session, args);
-                    } finally {
-                        rl.resume();
-                    }
-                    break;
-                case 'refresh':
-                    await commands.refresh(session);
-                    break;
-                case 'copy':
-                    await commands.copy(session, args);
-                    break;
-                case 'clear':
-                    console.clear();
-                    break;
-                case 'help':
-                    // Check if help for specific command
-                    if (args.length > 0) {
-                        const helpCmd = getCommand(args[0]!);
-                        if (helpCmd) {
-                            console.log(generateHelp(helpCmd));
-                        } else {
-                            console.log(chalk.red(`Unknown command: ${args[0]}`));
-                        }
-                    } else {
-                        console.log(generateHelpAll());
-                        // Add non-registry commands manually
-                        console.log(`
-Also available:
-  cd <dir>          Change directory (supports .., ~, /)
-  mv <src> <dst>    Move item (dst can be .., folder, or UUID)
-  copy [n]          Copy item n (or all) to clipboard
-  edit <item> [txt] Edit item (opens $EDITOR if no text provided)
-  refresh           Refresh current view
-  clear             Clear screen
-  exit              Exit
-                        `);
-                    }
-                    break;
-                default:
-                    console.log(chalk.red(`Unknown command: ${cmd}`));
+                rl.pause();
+                try {
+                    const ctx = registryParseArgs(cmdDef, args);
+                    await cmdDef.handler(session, ctx);
+                } finally {
+                    rl.resume();
+                }
+            } else {
+                console.log(chalk.red(`Unknown command: ${cmd}`));
             }
         } catch (e: any) {
             console.error(chalk.red("Error:"), e.message);

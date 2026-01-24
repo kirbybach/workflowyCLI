@@ -193,6 +193,17 @@ run_test "wf find with limit" \
     "node dist/index.js find 'bug' --limit 1 --json" \
     '"count": 1'
 
+# --- Refactored Commands Tests ---
+echo -e "\n${YELLOW}=== Refactored Commands ===${NC}"
+
+run_test "wf copy output (stub)" \
+    "node dist/index.js copy 1 --json" \
+    '"success": true'
+
+run_test "wf mv moves node" \
+    "node dist/index.js mv '/Projects/WorkflowyCLI/Add search feature' '/Projects/WorkflowyCLI/Fix bugs' --json" \
+    '"success": true'
+
 # --- Summary ---
 echo ""
 echo "────────────────────────────────────────"

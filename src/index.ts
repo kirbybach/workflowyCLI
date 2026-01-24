@@ -14,6 +14,13 @@ import './commands/rm.js';
 import './commands/complete.js';
 import './commands/find.js';
 import './commands/sync.js';
+import './commands/cd.js';
+import './commands/mv.js';
+import './commands/copy.js';
+import './commands/edit.js';
+import './commands/refresh.js';
+import './commands/clear.js';
+import './commands/help.js';
 
 import { getCommand, parseArgs } from './commands/registry.js';
 
@@ -272,6 +279,80 @@ program
 
             const cmdDef = getCommand('sync')!;
             const args: string[] = [];
+            if (options.json) args.push('--json');
+
+            const ctx = parseArgs(cmdDef, args);
+            await cmdDef.handler(session, ctx);
+        } catch (e: any) {
+            if (options.json) {
+                console.log(JSON.stringify({ error: e.message }));
+            } else {
+                console.error(`Error: ${e.message}`);
+            }
+            process.exit(1);
+        }
+    });
+
+program
+    .command('mv <source> <destination>')
+    .description('Move a node')
+    .option('--json', 'Output as JSON')
+    .action(async (source, destination, options) => {
+        try {
+            const session = await createSession();
+
+            const cmdDef = getCommand('mv')!;
+            const args: string[] = [source, destination];
+            if (options.json) args.push('--json');
+
+            const ctx = parseArgs(cmdDef, args);
+            await cmdDef.handler(session, ctx);
+        } catch (e: any) {
+            if (options.json) {
+                console.log(JSON.stringify({ error: e.message }));
+            } else {
+                console.error(`Error: ${e.message}`);
+            }
+            process.exit(1);
+        }
+    });
+
+program
+    .command('copy [index]')
+    .description('Copy node to clipboard')
+    .option('--json', 'Output as JSON')
+    .action(async (index, options) => {
+        try {
+            const session = await createSession();
+
+            const cmdDef = getCommand('copy')!;
+            const args: string[] = [];
+            if (index) args.push(index);
+            if (options.json) args.push('--json');
+
+            const ctx = parseArgs(cmdDef, args);
+            await cmdDef.handler(session, ctx);
+        } catch (e: any) {
+            if (options.json) {
+                console.log(JSON.stringify({ error: e.message }));
+            } else {
+                console.error(`Error: ${e.message}`);
+            }
+            process.exit(1);
+        }
+    });
+
+program
+    .command('edit <target> [new_text]')
+    .description('Edit a node')
+    .option('--json', 'Output as JSON')
+    .action(async (target, new_text, options) => {
+        try {
+            const session = await createSession();
+
+            const cmdDef = getCommand('edit')!;
+            const args: string[] = [target];
+            if (new_text) args.push(new_text);
             if (options.json) args.push('--json');
 
             const ctx = parseArgs(cmdDef, args);
