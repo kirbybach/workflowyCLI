@@ -1,5 +1,11 @@
 import type { IWorkflowyClient, WorkflowyNode } from '../api/index.js';
 import { TreeSyncService, type SearchResult, type SearchOptions } from './sync.js';
+import Conf from 'conf';
+
+const config = new Conf<{ lastPath: PathSegment[] }>({
+    projectName: 'workflowycli-session',
+    clearInvalidConfig: true
+});
 
 interface PathSegment {
     id: string; // Node ID
@@ -39,8 +45,19 @@ export class Session {
 
 
     async init() {
+        if (process.env.WF_RESET) {
+            config.clear();
+        }
+
         // API key validation moved to index.ts entry point
-        this.currentPath = [{ id: "None", name: "/" }];
+        const saved = config.get('lastPath');
+        if (saved && Array.isArray(saved) && saved.length > 0) {
+            this.currentPath = saved;
+            this.currentNodeId = saved[saved.length - 1]!.id;
+        } else {
+            this.currentPath = [{ id: "None", name: "/" }];
+            this.currentNodeId = "None";
+        }
     }
 
 
@@ -115,10 +132,58 @@ export class Session {
         return null;
     }
 
+    async jumpToNodeId(nodeId: string, pathHint?: string): Promise<void> {
+        // Strategy A: Check sync service for exact path
+        let found = this.syncService.findNodeById(nodeId);
+
+        // Strategy B: Optimistic Hint check
+        if (!found && pathHint) {
+            try {
+                // Try navigating to hint
+                await this.changeDirectory(pathHint);
+                if (this.currentNodeId === nodeId) return; // Success!
+                // If not match, maybe renamed. Continue to Strategy C.
+            } catch (e) {
+                // Hint failed
+            }
+        }
+
+        // Strategy C: Force Sync and try A again
+        if (!found) {
+            console.log("Node not found in cache. Syncing...");
+            await this.syncService.forceSync();
+            found = this.syncService.findNodeById(nodeId);
+        }
+
+        if (found) {
+            // Reconstruct path string
+            // PathSegment[] -> string. Root is typically implicit or empty.
+            // My paths usually start with Root ("/" with ID "None").
+            // SyncService path excludes Root? Let's check search behavior.
+            // searchRecursive starts with path=[]. 
+            // If match is deep, path is [{id, name}, ...].
+            // We need to convert this to "/Project/Item".
+
+            // Assuming root is implicit.
+            const pathStr = "/" + found.path.map(p => p.name).join("/");
+            try {
+                await this.changeDirectory(pathStr);
+                return;
+            } catch (e: any) {
+                // Should not happen if sync is correct, unless path string issues
+                console.error("Constructed path failed:", pathStr);
+                throw e;
+            }
+        }
+
+        throw new Error(`Bookmark target (ID: ${nodeId}) not found after sync.`);
+    }
+
     async changeDirectory(arg: string) {
         if (arg === "~" || arg === "/") {
             this.currentPath = [{ id: "None", name: "/" }];
             this.currentNodeId = "None";
+            config.set('lastPath', this.currentPath);
             return;
         }
 
@@ -143,6 +208,7 @@ export class Session {
             // Alternative: changeDirectory walks step by step and updates currentPath.
 
             await this.walkAndChange(arg);
+            config.set('lastPath', this.currentPath);
         } else {
             throw new Error(`Directory not found: ${arg}`);
         }

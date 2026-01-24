@@ -21,6 +21,9 @@ import './commands/edit.js';
 import './commands/refresh.js';
 import './commands/clear.js';
 import './commands/help.js';
+import './commands/mark.js';
+import './commands/goto.js';
+import './commands/cat.js';
 
 import { getCommand, parseArgs } from './commands/registry.js';
 
@@ -294,6 +297,55 @@ program
     });
 
 program
+    .command('cd [path]')
+    .description('Change current directory (persists to session)')
+    .option('--json', 'Output as JSON')
+    .action(async (path, options) => {
+        try {
+            const session = await createSession();
+
+            const cmdDef = getCommand('cd')!;
+            const args: string[] = [];
+            if (path) args.push(path);
+            if (options.json) args.push('--json');
+
+            const ctx = parseArgs(cmdDef, args);
+            await cmdDef.handler(session, ctx);
+        } catch (e: any) {
+            if (options.json) {
+                console.log(JSON.stringify({ error: e.message }));
+            } else {
+                console.error(`Error: ${e.message}`);
+            }
+            process.exit(1);
+        }
+    });
+
+program
+    .command('refresh')
+    .description('Refresh the current view from server')
+    .option('--json', 'Output as JSON')
+    .action(async (options) => {
+        try {
+            const session = await createSession();
+
+            const cmdDef = getCommand('refresh')!;
+            const args: string[] = [];
+            if (options.json) args.push('--json');
+
+            const ctx = parseArgs(cmdDef, args);
+            await cmdDef.handler(session, ctx);
+        } catch (e: any) {
+            if (options.json) {
+                console.log(JSON.stringify({ error: e.message }));
+            } else {
+                console.error(`Error: ${e.message}`);
+            }
+            process.exit(1);
+        }
+    });
+
+program
     .command('mv <source> <destination>')
     .description('Move a node')
     .option('--json', 'Output as JSON')
@@ -353,6 +405,78 @@ program
             const cmdDef = getCommand('edit')!;
             const args: string[] = [target];
             if (new_text) args.push(new_text);
+            if (options.json) args.push('--json');
+
+            const ctx = parseArgs(cmdDef, args);
+            await cmdDef.handler(session, ctx);
+        } catch (e: any) {
+            if (options.json) {
+                console.log(JSON.stringify({ error: e.message }));
+            } else {
+                console.error(`Error: ${e.message}`);
+            }
+            process.exit(1);
+        }
+    });
+
+program
+    .command('mark <name>')
+    .description('Bookmark current location')
+    .option('--json', 'Output as JSON')
+    .action(async (name, options) => {
+        try {
+            const session = await createSession();
+
+            const cmdDef = getCommand('mark')!;
+            const args: string[] = [name];
+            if (options.json) args.push('--json');
+
+            const ctx = parseArgs(cmdDef, args);
+            await cmdDef.handler(session, ctx);
+        } catch (e: any) {
+            if (options.json) {
+                console.log(JSON.stringify({ error: e.message }));
+            } else {
+                console.error(`Error: ${e.message}`);
+            }
+            process.exit(1);
+        }
+    });
+
+program
+    .command('goto <name>')
+    .description('Jump to bookmark')
+    .option('--json', 'Output as JSON')
+    .action(async (name, options) => {
+        try {
+            const session = await createSession();
+
+            const cmdDef = getCommand('goto')!;
+            const args: string[] = [name];
+            if (options.json) args.push('--json');
+
+            const ctx = parseArgs(cmdDef, args);
+            await cmdDef.handler(session, ctx);
+        } catch (e: any) {
+            if (options.json) {
+                console.log(JSON.stringify({ error: e.message }));
+            } else {
+                console.error(`Error: ${e.message}`);
+            }
+            process.exit(1);
+        }
+    });
+
+program
+    .command('cat <target>')
+    .description('Display node details')
+    .option('--json', 'Output as JSON')
+    .action(async (target, options) => {
+        try {
+            const session = await createSession();
+
+            const cmdDef = getCommand('cat')!;
+            const args: string[] = [target];
             if (options.json) args.push('--json');
 
             const ctx = parseArgs(cmdDef, args);

@@ -3,14 +3,23 @@ import { stdin as input, stdout as output } from 'node:process';
 import chalk from 'chalk';
 import boxen from 'boxen';
 import { Session } from '../state/session.js';
+import Conf from 'conf';
 
 import { getCommand, parseArgs as registryParseArgs, generateHelpAll, generateHelp } from '../commands/registry.js';
 
+const config = new Conf({
+    projectName: 'workflowycli-history',
+    clearInvalidConfig: true
+});
+
 export async function startRepl(session: Session) {
+    const history = config.get('history', []) as string[];
+
     const rl = readline.createInterface({
         input,
         output,
         terminal: true,
+        historySize: 100,
         completer: (async (line: string) => {
             try {
                 return await getSuggestionsAsync(session, line);
@@ -19,6 +28,9 @@ export async function startRepl(session: Session) {
             }
         }) as any
     });
+
+    // Load history
+    (rl as any).history = history;
 
     rl.on('SIGINT', () => {
         // Clear current line using process.stdout directly
@@ -45,6 +57,7 @@ export async function startRepl(session: Session) {
         if (!line) continue;
 
         if (line === 'exit' || line === 'quit') {
+            config.set('history', (rl as any).history);
             break;
         }
 
@@ -69,6 +82,7 @@ export async function startRepl(session: Session) {
         }
     }
 
+    config.set('history', (rl as any).history);
     rl.close();
 }
 

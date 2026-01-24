@@ -249,4 +249,30 @@ export class TreeSyncService {
             }
         }
     }
+
+    /**
+     * Find a node by ID and return its path (requires synced tree)
+     */
+    findNodeById(targetId: string): { node: WorkflowyNode; path: PathSegment[] } | null {
+        if (!this.inMemoryTree) return null;
+        return this.findRecursive(this.inMemoryTree, targetId, []);
+    }
+
+    private findRecursive(
+        nodes: WorkflowyNode[],
+        targetId: string,
+        path: PathSegment[]
+    ): { node: WorkflowyNode; path: PathSegment[] } | null {
+        for (const node of nodes) {
+            if (node.id === targetId) {
+                return { node, path };
+            }
+            if (node.ch) {
+                const nextPath = [...path, { id: node.id, name: node.name }];
+                const found = this.findRecursive(node.ch, targetId, nextPath);
+                if (found) return found;
+            }
+        }
+        return null;
+    }
 }

@@ -18,6 +18,7 @@ NC='\033[0m' # No Color
 
 # Enable mock mode
 export WF_MOCK=1
+export WF_RESET=1
 
 # Count tests
 PASSED=0
@@ -203,6 +204,40 @@ run_test "wf copy output (stub)" \
 run_test "wf mv moves node" \
     "node dist/index.js mv '/Projects/WorkflowyCLI/Add search feature' '/Projects/WorkflowyCLI/Fix bugs' --json" \
     '"success": true'
+
+# --- Sprint 4 Tests (Polish) ---
+echo -e "\n${YELLOW}=== Sprint 4 (Polish) ===${NC}"
+
+run_test "wf cat node" \
+    "node dist/index.js cat 1 --json" \
+    '"name":'
+
+run_test "wf mark creates bookmark" \
+    "node dist/index.js mark test_bm --json" \
+    '"success": true'
+
+run_test "wf goto uses bookmark" \
+    "node dist/index.js goto test_bm --json" \
+    '"success": true'
+
+run_test "wf goto uses bookmark" \
+    "node dist/index.js goto test_bm --json" \
+    '"success": true'
+
+# --- Persistence Tests ---
+echo -e "\n${YELLOW}=== Persistence Tests ===${NC}"
+
+# 1. Set state (with reset to ensure clean start)
+WF_RESET=1 node dist/index.js cd Projects
+
+# 2. Verify state persists (unset RESET)
+unset WF_RESET
+run_test "wf persists session (cwd)" \
+    "node dist/index.js ls" \
+    "WorkflowyCLI"
+
+# 3. Restore safety
+export WF_RESET=1
 
 # --- Summary ---
 echo ""
