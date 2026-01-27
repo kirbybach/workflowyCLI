@@ -235,9 +235,12 @@ export class Session {
     // Resolves a path to a node without changing state
     async resolvePath(pathStr: string): Promise<WorkflowyNode | null> {
         let currentId = this.currentNodeId;
+        // Track a simulated path stack for handling '..'
+        let pathStack = [...this.currentPath];
 
         if (pathStr.startsWith('/')) {
             currentId = "None"; // Root
+            pathStack = [{ id: "None", name: "/" }];
             pathStr = pathStr.slice(1);
         }
 
@@ -255,15 +258,19 @@ export class Session {
 
         for (const segment of segments) {
             if (segment === '..') {
-                // Not supported in pure resolution without parent context, 
-                // unless we cache parents or fetching parent ID.
-                // Session has getParentNodeId() but that relies on breadcrumbs 
-                // which match currentId only if we start from currentId.
-                // Supporting '..' in arbitrary paths is hard without back-links.
-                // We'll skip specific '..' support for now in arbitrary paths unless it's supported by cached breadcrumbs logic.
-                // For now, simplified: '..' only works relative to CWD in changeDirectory, not general paths?
-                // Or we assume we can't resolve '..' easily.
-                return null;
+                // Go up one level using the path stack
+                if (pathStack.length > 1) {
+                    pathStack.pop();
+                    const parent = pathStack[pathStack.length - 1];
+                    if (parent) {
+                        currentId = parent.id;
+                        currentNode = { id: parent.id, name: parent.name } as WorkflowyNode;
+                    }
+                } else {
+                    // Already at root, just return root
+                    currentNode = { id: "None", name: "/" } as WorkflowyNode;
+                }
+                continue;
             }
 
             const nextNode = await this.resolveOneLevel(currentId, segment);
@@ -271,6 +278,7 @@ export class Session {
 
             currentNode = nextNode;
             currentId = nextNode.id;
+            pathStack.push({ id: nextNode.id, name: nextNode.name });
         }
 
         return currentNode;
