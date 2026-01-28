@@ -57,13 +57,18 @@ async function findHandler(session: Session, { args, flags }: CommandContext): P
     const limit = flags.limit ? parseInt(String(flags.limit), 10) : 50;
 
     try {
-        if (flags.sync) {
-            if (!flags.json) process.stderr.write("Syncing tree...");
-            await session.forceSync(!flags.json);
-            if (!flags.json) console.error(chalk.green(" Done."));
-        }
+        // Sync Logic:
+        // 1. If --sync flag is set, ALWAYS Force Sync (Global).
+        // 2. If path is provided (Scoped Search) AND cache is stale, Partial Sync (Subtree).
+        // 3. If no path (Global Search) AND cache is stale, Force Sync (Global) via search() implicit or explicit.
 
-        // Determine start node
+        // We need to check if cache is stale. 
+        // Session doesn't expose isStale directly but we can use a heuristic or expose it.
+        // I added isStale to Session's SyncService, but Session doesn't expose it.
+        // Wait, I forgot to expose isStale in Session. I will do that in the next step or assume access.
+        // Actually, session.search will implicitly sync if stale. So for global search we don't need to do anything.
+        // But for scoped search, we want to AVOID the implicit global sync and do a partial one.
+
         let startNodeId = session.getCurrentNodeId();
         if (pathArg) {
             const startNode = await session.resolvePath(pathArg);
@@ -73,6 +78,26 @@ async function findHandler(session: Session, { args, flags }: CommandContext): P
                 throw new Error(`Directory not found: ${pathArg}`);
             }
             startNodeId = startNode.id;
+        }
+
+        if (flags.sync) {
+            if (!flags.json) process.stderr.write("Syncing tree...");
+            await session.forceSync(!flags.json);
+            if (!flags.json) console.error(chalk.green(" Done."));
+        } else if (session.isCacheStale && session.isCacheStale()) {
+            // CACHE IS STALE
+            // Strategy:
+            // 1. Partial Sync if searching a scoped subdirectory
+            // 2. Global Sync (implicitly via search) if searching Root
+
+            if (startNodeId !== "None") {
+                // Scoped Search (Explicit Path OR Implicit CWD) -> Partial Sync
+                // We only sync the target subtree.
+                if (!flags.json) console.error(chalk.dim(`Cache stale. Syncing scope only (${startNodeId})...`));
+                await session.syncSubtree(startNodeId);
+            } else {
+                // Global Search -> Let session.search handle the full sync
+            }
         }
 
         // Perform search

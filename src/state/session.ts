@@ -37,6 +37,30 @@ export class Session {
         await this.syncService.forceSync({ showProgress });
     }
 
+    isCacheStale(): boolean {
+        return this.syncService.isStale;
+    }
+
+    async syncSubtree(nodeId: string): Promise<void> {
+        // Construct path context if possible to enable skeleton grafting
+        let pathContext: PathSegment[] | undefined;
+
+        // 1. Is it the current node?
+        if (nodeId === this.currentNodeId) {
+            pathContext = this.currentPath;
+        } else {
+            // 2. Is it in the current path (parent)?
+            const index = this.currentPath.findIndex(p => p.id === nodeId);
+            if (index !== -1) {
+                pathContext = this.currentPath.slice(0, index + 1);
+            }
+        }
+        const options: any = { showProgress: true };
+        if (pathContext) options.pathContext = pathContext;
+
+        await this.syncService.syncSubtree(nodeId, options);
+    }
+
     async search(query: string, options?: SearchOptions, startNodeId: string = "None"): Promise<SearchResult[]> {
         // Ensure we have data (stale-while-revalidate)
         const { tree, syncingInBackground } = await this.syncService.getTree();
@@ -49,10 +73,22 @@ export class Session {
 
 
     async init() {
-        // Always start at root
-        this.currentPath = [{ id: "None", name: "/" }];
-        this.currentNodeId = "None";
+        // Load persisted state
+        const lastPath = this.config.get('lastPath');
+        if (lastPath && Array.isArray(lastPath) && lastPath.length > 0) {
+            this.currentPath = lastPath;
+            this.currentNodeId = lastPath[lastPath.length - 1]?.id || "None";
+        } else {
+            // Default to root
+            this.currentPath = [{ id: "None", name: "/" }];
+            this.currentNodeId = "None";
+        }
     }
+
+    private saveState() {
+        this.config.set('lastPath', this.currentPath);
+    }
+
 
 
     getCurrentNodeId(): string {
@@ -230,6 +266,8 @@ export class Session {
             }
             this.enterNode(nextNode);
         }
+
+        this.saveState();
     }
 
     // Resolves a path to a node without changing state
@@ -252,8 +290,16 @@ export class Session {
         // If start at root, we need to mock a root node if filtered out?
         // Actually resolveOneLevel needs a parentId.
 
-        if (segments.length === 0 && currentId === "None") {
-            return { id: "None", name: "/" } as any;
+        if (segments.length === 0) {
+            if (currentId === "None") {
+                return { id: "None", name: "/" } as any;
+            } else {
+                // We are in a subdirectory and path is effectively "."
+                // We need to return the current node details.
+                // Try to look it up in cache or just return a shell object with ID.
+                // find command only uses ID.
+                return { id: currentId, name: this.currentPath[this.currentPath.length - 1]?.name || "?" } as any;
+            }
         }
 
         for (const segment of segments) {

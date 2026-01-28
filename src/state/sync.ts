@@ -55,6 +55,32 @@ export class TreeSyncService {
         this.lastSyncedAt = 0;
     }
 
+    get isStale(): boolean {
+        // If not loaded, try loading first
+        if (!this.inMemoryTree) {
+            this.tryLoadCache();
+        }
+        // If still no tree, it is "stale" (needs sync)
+        if (!this.inMemoryTree) return true;
+
+        return Date.now() - this.lastSyncedAt > CACHE_TTL_MS;
+    }
+
+    private tryLoadCache(): boolean {
+        if (this.inMemoryTree) return true;
+        try {
+            const cached = this.cache.get('tree');
+            if (cached && Array.isArray(cached.root)) {
+                this.inMemoryTree = cached.root;
+                this.lastSyncedAt = cached.syncedAt;
+                return true;
+            }
+        } catch (e) {
+            console.error("Failed to read cache:", e);
+        }
+        return false;
+    }
+
     /**
      * Stale-While-Revalidate pattern:
      * 1. Return cached data immediately (if available)
@@ -73,21 +99,12 @@ export class TreeSyncService {
 
         // 2. Try disk cache (fast)
         if (!this.inMemoryTree && !forceRefresh) {
-            try {
-                const cached = this.cache.get('tree');
-                if (cached && Array.isArray(cached.root)) {
-                    this.inMemoryTree = cached.root;
-                    this.lastSyncedAt = cached.syncedAt;
-                    const isStale = Date.now() - cached.syncedAt > CACHE_TTL_MS;
-
-                    if (isStale && !this.syncInProgress) {
-                        this.syncInBackground();
-                    }
-                    return { tree: cached.root, stale: isStale, syncingInBackground: !!this.syncInProgress };
+            if (this.tryLoadCache()) {
+                const isStale = Date.now() - this.lastSyncedAt > CACHE_TTL_MS;
+                if (isStale && !this.syncInProgress) {
+                    this.syncInBackground();
                 }
-            } catch (e) {
-                console.error("Failed to read cache, clearing:", e);
-                this.cache.clear();
+                return { tree: this.inMemoryTree!, stale: isStale, syncingInBackground: !!this.syncInProgress };
             }
         }
 
@@ -178,6 +195,115 @@ export class TreeSyncService {
     // Expose for hybrid caching
     getInMemoryTree(): WorkflowyNode[] | null {
         return this.inMemoryTree;
+    }
+
+    /**
+     * Partial Sync: Fetch only a specific subtree and graft it into the cache.
+     * Does NOT update the global 'syncedAt' timestamp, protecting the "stale" status of the rest of the tree.
+     */
+    async syncSubtree(nodeId: string, options: { showProgress?: boolean; silent?: boolean, pathContext?: PathSegment[] } = {}): Promise<WorkflowyNode[]> {
+        // 1. Ensure we have a base tree to graft onto (even if stale)
+        if (!this.inMemoryTree) {
+            // Try to load from cache first
+            this.tryLoadCache();
+        }
+
+        if (!this.inMemoryTree) {
+            // If still no tree, we must initialize a root at least
+            // Or if we have pathContext, we can build a skeleton
+            if (options.pathContext && options.pathContext.length > 0 && options.pathContext[0]?.id === 'None') {
+                this.inMemoryTree = []; // Root is array of nodes? No, root is WorkflowyNode[].
+                // Wait, inMemoryTree IS WorkflowyNode[]. That IS the root level items.
+            } else {
+                return this.syncBlocking(options);
+            }
+        }
+
+        const startTime = Date.now();
+        let nodeCount = 0;
+
+        try {
+            // 2. Fetch the subtree
+            const subtree = await this.fetchFullTree(nodeId, (count) => {
+                nodeCount = count;
+                if (options.showProgress && !options.silent) {
+                    process.stderr.write(`\rSyncing subtree... ${nodeCount} nodes`);
+                }
+            });
+
+            // 3. Graft it: Find the node in memory and update its children
+            let target = this.findNodeById(nodeId);
+
+            // Skeleton Grafting: If target missing but we have path context, create stubs
+            if (!target && options.pathContext && options.pathContext.length > 0) {
+                if (!this.inMemoryTree) this.inMemoryTree = [];
+
+                let currentLevel = this.inMemoryTree;
+
+                // If pathContext[0] is Root, skip it.
+                // If pathContext doesn't start with Root, search from top?
+                // Assume pathContext is absolute from Root.
+
+                for (let i = 1; i < options.pathContext.length; i++) {
+                    const segment = options.pathContext[i];
+                    if (!segment) continue;
+
+                    if (segment.id === nodeId) {
+                        // Target logic
+                        let node = currentLevel.find(n => n.id === segment.id);
+                        if (!node) {
+                            node = {
+                                id: segment.id,
+                                name: segment.name,
+                                ch: []
+                            } as WorkflowyNode;
+                            currentLevel.push(node);
+                        }
+                        node.ch = subtree;
+                        target = { node, path: options.pathContext };
+                        break;
+                    }
+
+                    // Intermediate logic
+                    let node = currentLevel.find(n => n.id === segment.id);
+                    if (!node) {
+                        node = {
+                            id: segment.id,
+                            name: segment.name,
+                            ch: []
+                        } as WorkflowyNode;
+                        currentLevel.push(node);
+                    }
+                    if (!node.ch) node.ch = [];
+                    currentLevel = node.ch;
+                }
+            }
+
+            if (target) {
+                target.node.ch = subtree;
+
+                // Persist the grafted tree (updates contents, preserves old syncedAt)
+                // We use the OLD lastSyncedAt to ensure next global sync still runs if needed.
+                this.cache.set('tree', {
+                    syncedAt: this.lastSyncedAt,
+                    root: this.inMemoryTree || [] // Ensure array
+                });
+
+                if (!options.silent && options.showProgress) {
+                    const elapsed = Math.max(1, Date.now() - startTime);
+                    console.error(chalk.dim(`\rPartially synced ${nodeCount} nodes in ${elapsed}ms`));
+                }
+                return subtree;
+            } else {
+                // Node not found and no context provided
+                if (!options.silent) console.error(chalk.yellow("Target node not found in cache for grafting. Falling back to full sync."));
+                return this.syncBlocking(options);
+            }
+
+        } catch (e: any) {
+            if (!options.silent) console.error(chalk.red(`Partial sync failed: ${e.message}`));
+            throw e;
+        }
     }
 
     /**
