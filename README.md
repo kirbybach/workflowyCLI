@@ -74,22 +74,30 @@ wf --mock
 Run commands directly without entering the REPL (great for scripting):
 
 ```bash
-# List items at root
-wf ls
+# List items
+wf ls                    # List root
+wf ls Projects           # List path
+wf ls -a                 # Show completed items
 
-# List items at a path
-wf ls Projects
+# Tree view
+wf tree                  # Show tree
+wf tree Projects 3       # Show tree depth 3
 
-# Add a new item
-wf add "New Task"
+# Management
+wf add "New Task"        # Add to current path
+wf add "Item" -p /Inbox  # Add to specific path
+wf rm "Item" -f          # Delete item (requires -f)
+wf complete "Item"       # Toggle completion
+wf mv "Item" "Dest"      # Move item
 
-# View node content and notes
-wf cat Projects/WorkflowyCLI
+# Search & content
+wf find "query"          # Search
+wf cat "Item"            # View details
+wf copy 1                # Copy item to clipboard
 
-# Get JSON output for scripting
-wf ls --json
-wf tree --json
-wf add "Task" --json
+# Scripting & JSON
+wf ls --json             # Get JSON output
+wf find "q" --json       # Search results as JSON
 ```
 
 ## Commands
