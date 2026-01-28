@@ -250,6 +250,7 @@ program
     .option('-n, --notes', 'Include notes in search')
     .option('-l, --limit <number>', 'Limit results')
     .option('--sync', 'Force sync before searching')
+    .option('-r, --regex', 'Treat query as a regular expression')
     .option('--json', 'Output as JSON')
     .action(async (query, options) => {
         try {
@@ -260,10 +261,13 @@ program
             if (options.notes) args.push('--notes');
             if (options.limit) args.push('--limit', options.limit);
             if (options.sync) args.push('--sync');
+            if (options.regex) args.push('--regex');
             if (options.json) args.push('--json');
 
             const ctx = parseArgs(cmdDef, args);
             await cmdDef.handler(session, ctx);
+            // Explicitly exit to prevent background sync timers from keeping process alive
+            process.exit(0);
         } catch (e: any) {
             if (options.json) {
                 console.log(JSON.stringify({ error: e.message }));

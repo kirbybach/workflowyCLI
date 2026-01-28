@@ -91,7 +91,8 @@ wf complete "Item"       # Toggle completion
 wf mv "Item" "Dest"      # Move item
 
 # Search & content
-wf find "query"          # Search
+wf find "query"          # Search substring
+wf find "^Pro.*" -r      # Search with Regex
 wf cat "Item"            # View details
 wf copy 1                # Copy item to clipboard
 
@@ -118,7 +119,7 @@ Once inside the REPL, you can use the following commands:
 | `rm` | Delete a node (requires -f) | `rm -f <target> [--json]` |
 | `complete` | Toggle completion status | `complete <target> [--json]` |
 | `copy` | Copy node content to clipboard | `copy [index] [--json]` |
-| `find` | Search for nodes (local cache) | `find <query> [--notes] [--json]` |
+| `find` | Search for nodes (local cache) | `find <query> [--notes] [--regex] [--json]` |
 | `sync` | Force full tree sync | `sync [--json]` |
 | `refresh` | Refresh the current view | `refresh [--json]` |
 | `clear` | Clear the screen | `clear` |

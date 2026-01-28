@@ -31,6 +31,7 @@ export interface PathSegment {
 export interface SearchOptions {
     includeNotes?: boolean;
     limit?: number;
+    isRegex?: boolean;
 }
 
 export class TreeSyncService {
@@ -226,9 +227,26 @@ export class TreeSyncService {
         results: SearchResult[],
         options: SearchOptions
     ) {
+        let regex: RegExp | null = null;
+        if (options.isRegex) {
+            try {
+                regex = new RegExp(query, 'i');
+            } catch (e) {
+                throw new Error(`Invalid regular expression: ${query}`);
+            }
+        }
+
         for (const node of nodes) {
-            const nameMatch = node.name?.toLowerCase().includes(query);
-            const noteMatch = options.includeNotes && node.note?.toLowerCase().includes(query);
+            let nameMatch = false;
+            let noteMatch = false;
+
+            if (regex) {
+                nameMatch = regex.test(node.name || '');
+                noteMatch = !!options.includeNotes && regex.test(node.note || '');
+            } else {
+                nameMatch = (node.name || '').toLowerCase().includes(query);
+                noteMatch = !!options.includeNotes && (node.note || '').toLowerCase().includes(query);
+            }
 
             if (nameMatch || noteMatch) {
                 results.push({

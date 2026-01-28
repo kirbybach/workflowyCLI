@@ -9,14 +9,15 @@ registerCommand({
     name: 'find',
     aliases: ['search', 'f'],
     description: 'Search for nodes by text',
-    usage: 'find <query> [--notes] [--limit N] [--json]',
+    usage: 'find <query> [--notes] [--limit N] [--regex] [--json]',
     args: [
         { name: 'query', required: true, description: 'Text to search for' }
     ],
     flags: [
         { name: 'notes', alias: 'n', description: 'Include notes in search', type: 'boolean' },
         { name: 'limit', alias: 'l', description: 'Max results (default: 50)', type: 'string' },
-        { name: 'sync', alias: 's', description: 'Force full sync before searching', type: 'boolean' }
+        { name: 'sync', alias: 's', description: 'Force full sync before searching', type: 'boolean' },
+        { name: 'regex', alias: 'r', description: 'Treat query as a regular expression', type: 'boolean' }
     ],
     handler: findHandler
 });
@@ -39,6 +40,7 @@ async function findHandler(session: Session, { args, flags }: CommandContext): P
 
     const query = args[0]!;
     const includeNotes = !!flags.notes;
+    const isRegex = !!flags.regex;
     const limit = flags.limit ? parseInt(String(flags.limit), 10) : 50;
 
     try {
@@ -51,7 +53,8 @@ async function findHandler(session: Session, { args, flags }: CommandContext): P
         // Perform search
         const results = await session.search(query, {
             includeNotes,
-            limit
+            limit,
+            isRegex
         });
 
         if (flags.json) {
