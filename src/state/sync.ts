@@ -1,17 +1,12 @@
 import Conf from 'conf';
 import chalk from 'chalk';
-import type { IWorkflowyClient } from '../api/index.js'; // Use interface
+import { isMockMode, type IWorkflowyClient } from '../api/index.js'; // Use interface
 import type { WorkflowyNode } from '../api/client.js';
 
 interface TreeCache {
     syncedAt: number;
     root: WorkflowyNode[];
 }
-
-const cache = new Conf<{ tree: TreeCache }>({
-    projectName: 'workflowycli-tree',
-    clearInvalidConfig: true
-});
 
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes standard TTL
 const SYNC_TIMEOUT_MS = 60000;      // 60 seconds timeout (increased for larger trees)
@@ -36,19 +31,26 @@ export interface SearchOptions {
 
 export class TreeSyncService {
     private client: IWorkflowyClient;
+    private cache: Conf<{ tree: TreeCache }>;
     private inMemoryTree: WorkflowyNode[] | null = null;
     private syncInProgress: Promise<WorkflowyNode[]> | null = null;
     private lastSyncedAt: number = 0;
 
     constructor(client: IWorkflowyClient) {
         this.client = client;
+
+        const suffix = isMockMode() ? '-mock' : '';
+        this.cache = new Conf<{ tree: TreeCache }>({
+            projectName: `workflowycli-tree${suffix}`,
+            clearInvalidConfig: true
+        });
     }
 
     /**
      * Clear local cache (useful for debugging or forced reset)
      */
     clearCache() {
-        cache.clear();
+        this.cache.clear();
         this.inMemoryTree = null;
         this.lastSyncedAt = 0;
     }
@@ -72,7 +74,7 @@ export class TreeSyncService {
         // 2. Try disk cache (fast)
         if (!this.inMemoryTree && !forceRefresh) {
             try {
-                const cached = cache.get('tree');
+                const cached = this.cache.get('tree');
                 if (cached && Array.isArray(cached.root)) {
                     this.inMemoryTree = cached.root;
                     this.lastSyncedAt = cached.syncedAt;
@@ -85,7 +87,7 @@ export class TreeSyncService {
                 }
             } catch (e) {
                 console.error("Failed to read cache, clearing:", e);
-                cache.clear();
+                this.cache.clear();
             }
         }
 
@@ -149,7 +151,7 @@ export class TreeSyncService {
 
             // Cache it
             const now = Date.now();
-            cache.set('tree', { syncedAt: now, root: tree });
+            this.cache.set('tree', { syncedAt: now, root: tree });
             this.inMemoryTree = tree;
             this.lastSyncedAt = now;
 
