@@ -192,13 +192,9 @@ export class TreeSyncService {
         }
 
         // Recursively fetch descendants
-        // Concurrency limit of 2 parallel requests to avoid 429s (was 5)
-        const CONCURRENCY = 2;
-        for (let i = 0; i < children.length; i += CONCURRENCY) {
-            const batch = children.slice(i, i + CONCURRENCY);
-            await Promise.all(batch.map(async (child) => {
-                // If we encounter 429s, the client will handle backoff.
-                // We just need to be gentle here.
+        // We can now fire all requests in parallel; the Client's semaphore will throttle network calls.
+        if (children.length > 0) {
+            await Promise.all(children.map(async (child) => {
                 child.ch = await this.fetchFullTree(child.id, onProgress, runningCount);
             }));
         }
