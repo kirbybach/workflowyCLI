@@ -96,11 +96,11 @@ export class MockWorkflowyClient {
         await this.delay(10);
 
         if (parentId === 'None') {
-            return this.data;
+            return JSON.parse(JSON.stringify(this.data));
         }
 
         const parent = this.findNode(parentId);
-        return parent?.ch || [];
+        return parent?.ch ? JSON.parse(JSON.stringify(parent.ch)) : [];
     }
 
     async createNode(parentId: string, name: string, note?: string): Promise<WorkflowyNode> {

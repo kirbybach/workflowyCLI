@@ -89,20 +89,32 @@ export async function startRepl(session: Session) {
 function parseArgs(str: string): string[] {
     const args: string[] = [];
     let current = '';
-    let quoteChar: string | null = null; // Track which quote character is active
+    let quoteChar: string | null = null;
+    let escaped = false;
 
     for (let i = 0; i < str.length; i++) {
         const char = str[i];
-        if ((char === '"' || char === "'") && (quoteChar === null || quoteChar === char)) {
-            // Toggle quote state for matching quote type
+
+        if (escaped) {
+            current += char;
+            escaped = false;
+        } else if (char === '\\') {
+            escaped = true;
+        } else if ((char === '"' || char === "'") && (quoteChar === null || quoteChar === char)) {
             quoteChar = quoteChar === null ? char : null;
         } else if (char === ' ' && quoteChar === null) {
-            if (current) args.push(current);
-            current = '';
+            if (current) {
+                args.push(current);
+                current = '';
+            }
         } else {
             current += char;
         }
     }
+
+    // Trailing escape check (just append literal backslash if string ends with one, though usually invalid syntax)
+    if (escaped) current += '\\';
+
     if (current) args.push(current);
 
     return args;
@@ -112,10 +124,15 @@ async function getSuggestionsAsync(session: Session, line: string): Promise<[str
     // 1. Parse line to find the current argument being typed
     let quoteChar: string | null = null;
     let currentArgStart = 0;
+    let escaped = false;
 
     for (let i = 0; i < line.length; i++) {
         const char = line[i];
-        if ((char === '"' || char === "'") && (quoteChar === null || quoteChar === char)) {
+        if (escaped) {
+            escaped = false;
+        } else if (char === '\\') {
+            escaped = true;
+        } else if ((char === '"' || char === "'") && (quoteChar === null || quoteChar === char)) {
             quoteChar = quoteChar === null ? char : null;
         } else if (char === ' ' && quoteChar === null) {
             currentArgStart = i + 1;
@@ -151,14 +168,24 @@ async function getSuggestionsAsync(session: Session, line: string): Promise<[str
             searchStr = currentArg.slice(1);
         }
 
+        // Handle escaped quotes in searchStr if they exist? 
+        // For simplicity, strict prefix match on raw name is tricky if user typed escaped version.
+        // We'll trust the user typed a literal prefix of the name unless they used quotes.
+        // If they used quotes, we really should unescape the searchStr.
+        if (usedQuote) {
+            searchStr = searchStr.replace(/\\(.)/g, '$1');
+        }
+
         const matches = names.filter((n: string) => n.startsWith(searchStr));
 
         // Re-format matches. If it needs quotes (has space) or was already quoted, wrap in quotes.
         // Use the same quote character that was started, or default to double quotes.
         const finalMatches = matches.map((n: string) => {
-            if (n.includes(' ') || usedQuote) {
+            if (n.includes(' ') || usedQuote || n.includes('"') || n.includes("'")) {
                 const q = usedQuote || '"';
-                return `${q}${n}${q}`;
+                // Escape internal occurrences of the quote char
+                const escapedN = n.replaceAll(q, `\\${q}`);
+                return `${q}${escapedN}${q}`;
             }
             return n;
         });

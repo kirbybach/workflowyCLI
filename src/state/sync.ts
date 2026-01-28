@@ -44,6 +44,10 @@ export class TreeSyncService {
             projectName: `workflowycli-tree${suffix}`,
             clearInvalidConfig: true
         });
+
+        if (process.env.WF_RESET) {
+            this.clearCache();
+        }
     }
 
     /**
@@ -435,5 +439,49 @@ export class TreeSyncService {
             }
         }
         return null;
+    }
+
+    // --- Manual Cache Updates (Optimistic) ---
+
+    addNodeToCache(parentId: string, node: WorkflowyNode) {
+        if (!this.inMemoryTree) return;
+
+        if (parentId === 'None') {
+            this.inMemoryTree.push(node);
+        } else {
+            const found = this.findNodeById(parentId);
+            if (found) {
+                if (!found.node.ch) found.node.ch = [];
+                found.node.ch.push(node);
+            }
+        }
+        // We do NOT update syncedAt because other parts might still be stale.
+    }
+
+    updateNodeInCache(nodeId: string, updates: Partial<WorkflowyNode>) {
+        if (!this.inMemoryTree) return;
+        const found = this.findNodeById(nodeId);
+        if (found) {
+            Object.assign(found.node, updates);
+        }
+    }
+
+    removeNodeFromCache(nodeId: string) {
+        if (!this.inMemoryTree) return;
+        this.removeRecursive(this.inMemoryTree, nodeId);
+    }
+
+    private removeRecursive(nodes: WorkflowyNode[], targetId: string): boolean {
+        const idx = nodes.findIndex(n => n.id === targetId);
+        if (idx !== -1) {
+            nodes.splice(idx, 1);
+            return true;
+        }
+        for (const node of nodes) {
+            if (node.ch && this.removeRecursive(node.ch, targetId)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

@@ -73,6 +73,10 @@ export class Session {
 
 
     async init() {
+        if (process.env.WF_RESET) {
+            this.config.clear();
+        }
+
         // Load persisted state
         const lastPath = this.config.get('lastPath');
         if (lastPath && Array.isArray(lastPath) && lastPath.length > 0) {
@@ -371,27 +375,32 @@ export class Session {
     async createNode(parentId: string, name: string, note?: string) {
         const newNode = await this.client.createNode(parentId, name, note);
         this.nodeCache.delete(parentId);
+        this.syncService.addNodeToCache(parentId, newNode);
         return newNode;
     }
 
     async deleteNode(nodeId: string) {
         await this.client.deleteNode(nodeId);
         this.nodeCache.delete(this.currentNodeId);
+        this.syncService.removeNodeFromCache(nodeId);
     }
 
     async updateNode(nodeId: string, updates: Partial<WorkflowyNode>) {
         await this.client.updateNode(nodeId, updates);
         this.nodeCache.delete(this.currentNodeId);
+        this.syncService.updateNodeInCache(nodeId, updates);
     }
 
     async completeNode(nodeId: string) {
         await this.client.completeNode(nodeId);
         this.nodeCache.delete(this.currentNodeId);
+        this.syncService.updateNodeInCache(nodeId, { completedAt: Date.now() });
     }
 
     async uncompleteNode(nodeId: string) {
         await this.client.uncompleteNode(nodeId);
         this.nodeCache.delete(this.currentNodeId);
+        this.syncService.updateNodeInCache(nodeId, { completedAt: null });
     }
 
     async moveNode(nodeId: string, parentId: string, priority: number) {
@@ -399,5 +408,7 @@ export class Session {
         // Invalidate both source (current) and dest (parent) caches
         this.nodeCache.delete(parentId);
         this.nodeCache.delete(this.currentNodeId);
+        // Note: Sync service update for move is complex (needs to preserve children), skipping for now.
+        // This means moved nodes might appear in old location in 'find' until next sync.
     }
 }
