@@ -245,19 +245,21 @@ program
     });
 
 program
-    .command('find <query>')
-    .description('Search for nodes')
+    .command('find <arg1> [arg2]')
+    .description('Search for nodes (usage: find [path] <query> or find <query>)')
     .option('-n, --notes', 'Include notes in search')
     .option('-l, --limit <number>', 'Limit results')
     .option('--sync', 'Force sync before searching')
     .option('-r, --regex', 'Treat query as a regular expression')
     .option('--json', 'Output as JSON')
-    .action(async (query, options) => {
+    .action(async (arg1, arg2, options) => {
         try {
             const session = await createSession();
 
             const cmdDef = getCommand('find')!;
-            const args: string[] = [query];
+            const args: string[] = [arg1];
+            if (arg2) args.push(arg2);
+
             if (options.notes) args.push('--notes');
             if (options.limit) args.push('--limit', options.limit);
             if (options.sync) args.push('--sync');

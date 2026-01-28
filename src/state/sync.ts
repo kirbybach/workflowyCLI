@@ -92,7 +92,8 @@ export class TreeSyncService {
         }
 
         // 3. No cache or forced refresh - must block
-        const tree = await this.syncBlocking();
+        // Show progress so the user doesn't think the CLI has hung
+        const tree = await this.syncBlocking({ showProgress: true });
         return { tree, stale: false, syncingInBackground: false };
     }
 
@@ -206,15 +207,33 @@ export class TreeSyncService {
 
     /**
      * Search the in-memory tree (instant, never blocks on network)
+     * @param query Search term
+     * @param options Search options
+     * @param startNodeId Optional node ID to start search from (defaults to root)
      */
-    search(query: string, options: SearchOptions = {}): SearchResult[] {
+    search(query: string, options: SearchOptions = {}, startNodeId: string = "None"): SearchResult[] {
         if (!this.inMemoryTree) {
             // If no tree, we can't search. Caller should ensure sync first.
             return [];
         }
 
+        let startNodes: WorkflowyNode[] = this.inMemoryTree;
+        let initialPath: PathSegment[] = [];
+
+        // If a specific start node is requested (and it's not root), find it
+        if (startNodeId !== "None") {
+            const found = this.findRecursive(this.inMemoryTree, startNodeId, []);
+            if (found) {
+                startNodes = [found.node];
+                initialPath = found.path;
+            } else {
+                // If start node not found, return empty results (or throw?)
+                return [];
+            }
+        }
+
         const results: SearchResult[] = [];
-        this.searchRecursive(this.inMemoryTree, query.toLowerCase(), [], results, options);
+        this.searchRecursive(startNodes, query.toLowerCase(), initialPath, results, options);
         return results;
     }
 

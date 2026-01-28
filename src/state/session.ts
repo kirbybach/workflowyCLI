@@ -37,14 +37,14 @@ export class Session {
         await this.syncService.forceSync({ showProgress });
     }
 
-    async search(query: string, options?: SearchOptions): Promise<SearchResult[]> {
+    async search(query: string, options?: SearchOptions, startNodeId: string = "None"): Promise<SearchResult[]> {
         // Ensure we have data (stale-while-revalidate)
         const { tree, syncingInBackground } = await this.syncService.getTree();
 
         // If syncing in background for the first time or tree is empty, we might want to wait?
         // But getTree blocks if no cache exists. So we are good.
 
-        return this.syncService.search(query, options);
+        return this.syncService.search(query, options, startNodeId);
     }
 
 

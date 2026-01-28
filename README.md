@@ -91,7 +91,9 @@ wf complete "Item"       # Toggle completion
 wf mv "Item" "Dest"      # Move item
 
 # Search & content
-wf find "query"          # Search substring
+wf find "query"          # Search in current directory (default)
+wf find . "query"        # Explicitly search current directory
+wf find /Inbox "query"   # Search only within /Inbox
 wf find "^Pro.*" -r      # Search with Regex
 wf cat "Item"            # View details
 wf copy 1                # Copy item to clipboard
@@ -119,7 +121,7 @@ Once inside the REPL, you can use the following commands:
 | `rm` | Delete a node (requires -f) | `rm -f <target> [--json]` |
 | `complete` | Toggle completion status | `complete <target> [--json]` |
 | `copy` | Copy node content to clipboard | `copy [index] [--json]` |
-| `find` | Search for nodes (local cache) | `find <query> [--notes] [--regex] [--json]` |
+| `find` | Search for nodes (local cache) | `find [path] <query> [--notes] [--regex] [--json]` |
 | `sync` | Force full tree sync | `sync [--json]` |
 | `refresh` | Refresh the current view | `refresh [--json]` |
 | `clear` | Clear the screen | `clear` |
@@ -181,9 +183,14 @@ This node contains the CLI development tasks.
 **Instant Search:**
 ```bash
 > sync  # Force initial full sync
-> find "idea"
+> cd Projects
+> find "idea"         # Searches only in /Projects
 [1] /Projects/New Idea
     New Idea
+
+> find / "idea"       # Searches everywhere
+[1] /Projects/New Idea
+[2] /Personal/Gift Idea
 ```
 
 ## JSON Output for Scripting

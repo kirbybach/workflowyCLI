@@ -9,9 +9,10 @@ registerCommand({
     name: 'find',
     aliases: ['search', 'f'],
     description: 'Search for nodes by text',
-    usage: 'find <query> [--notes] [--limit N] [--regex] [--json]',
+    usage: 'find [path] <query> [--notes] [--limit N] [--regex] [--json]',
     args: [
-        { name: 'query', required: true, description: 'Text to search for' }
+        { name: 'arg1', required: true, description: 'Path (optional) or Query' },
+        { name: 'arg2', required: false, description: 'Query (if path provided)' }
     ],
     flags: [
         { name: 'notes', alias: 'n', description: 'Include notes in search', type: 'boolean' },
@@ -33,12 +34,24 @@ async function findHandler(session: Session, { args, flags }: CommandContext): P
             console.log(JSON.stringify({ error: 'Query is required' }, null, 2));
             process.exitCode = 1;
         } else {
-            console.log(chalk.red("Usage: find <query>"));
+            console.log(chalk.red("Usage: find [path] <query>"));
         }
         return;
     }
 
-    const query = args[0]!;
+    let query: string;
+    let pathArg: string | undefined;
+
+    if (args[1]) {
+        // Two arguments: find <path> <query>
+        pathArg = args[0];
+        query = args[1]!;
+    } else {
+        // One argument: find <query>
+        // (Defaults to current directory)
+        query = args[0]!;
+    }
+
     const includeNotes = !!flags.notes;
     const isRegex = !!flags.regex;
     const limit = flags.limit ? parseInt(String(flags.limit), 10) : 50;
@@ -50,12 +63,24 @@ async function findHandler(session: Session, { args, flags }: CommandContext): P
             if (!flags.json) console.error(chalk.green(" Done."));
         }
 
+        // Determine start node
+        let startNodeId = session.getCurrentNodeId();
+        if (pathArg) {
+            const startNode = await session.resolvePath(pathArg);
+            if (!startNode) {
+                // Check if user maybe typed "find query" but meant path? 
+                // No, sticking to rules is safer. simpler.
+                throw new Error(`Directory not found: ${pathArg}`);
+            }
+            startNodeId = startNode.id;
+        }
+
         // Perform search
         const results = await session.search(query, {
             includeNotes,
             limit,
             isRegex
-        });
+        }, startNodeId);
 
         if (flags.json) {
             console.log(JSON.stringify({
