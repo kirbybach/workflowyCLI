@@ -9,22 +9,44 @@ registerCommand({
     name: 'ls',
     aliases: ['list', 'dir'],
     description: 'List children of current node',
-    usage: 'ls [-a] [--json]',
+    usage: 'ls [path] [-a] [--json]',
+    args: [
+        { name: 'path', required: false, description: 'Path to list (default: current)' }
+    ],
     flags: [
         { name: 'all', alias: 'a', description: 'Show completed items', type: 'boolean' }
     ],
     handler: lsHandler
 });
 
-async function lsHandler(session: Session, { flags }: CommandContext): Promise<void> {
+async function lsHandler(session: Session, { args, flags }: CommandContext): Promise<void> {
     try {
-        const children = await session.getChildren();
+        let targetNodeId = session.getCurrentNodeId();
+        let targetPath = session.getCurrentPath();
+
+        if (args.length > 0 && args[0]) {
+            const pathStr = args[0];
+            const node = await session.resolvePath(pathStr);
+            if (!node) {
+                throw new Error(`Path not found: ${pathStr}`);
+            }
+            targetNodeId = node.id;
+            // Construct display path - if root, just /
+            targetPath = node.name; // This is just name, not full path. 
+            // We don't easily have full path of arbitrary node unless we trace parents.
+            // But for listing we can just say "Listing: <name>" or similar.
+            // For JSON path, we might want to be accurate.
+            // But let's stick to node name or resolving path string if it was absolute.
+            targetPath = pathStr;
+        }
+
+        const children = await session.getChildren(targetNodeId);
         const filtered = children.filter(c => flags.all || !c.completedAt);
 
         // JSON output mode
         if (flags.json) {
             const output = {
-                path: session.getCurrentPath(),
+                path: targetPath,
                 count: filtered.length,
                 totalCount: children.length,
                 children: filtered.map((c, i) => ({

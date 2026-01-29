@@ -77,20 +77,13 @@ export class Session {
             this.config.clear();
         }
 
-        // Load persisted state
-        const lastPath = this.config.get('lastPath');
-        if (lastPath && Array.isArray(lastPath) && lastPath.length > 0) {
-            this.currentPath = lastPath;
-            this.currentNodeId = lastPath[lastPath.length - 1]?.id || "None";
-        } else {
-            // Default to root
-            this.currentPath = [{ id: "None", name: "/" }];
-            this.currentNodeId = "None";
-        }
+        // Default to root (Persistence disabled per user request)
+        this.currentPath = [{ id: "None", name: "/" }];
+        this.currentNodeId = "None";
     }
 
     private saveState() {
-        this.config.set('lastPath', this.currentPath);
+        // No-op: Persistence disabled
     }
 
 
@@ -246,7 +239,17 @@ export class Session {
     // Walks the path and updates state step-by-step to maintain breadcrumbs
     private async walkAndChange(pathStr: string) {
         // Handle absolute start
-        if (pathStr.startsWith('/')) {
+        if (pathStr === '~') {
+            this.currentPath = [{ id: "None", name: "/" }];
+            this.currentNodeId = "None";
+            return;
+        }
+
+        if (pathStr.startsWith('~/')) {
+            this.currentPath = [{ id: "None", name: "/" }];
+            this.currentNodeId = "None";
+            pathStr = pathStr.slice(2);
+        } else if (pathStr.startsWith('/')) {
             this.currentPath = [{ id: "None", name: "/" }];
             this.currentNodeId = "None";
             pathStr = pathStr.slice(1);
@@ -280,13 +283,17 @@ export class Session {
         // Track a simulated path stack for handling '..'
         let pathStack = [...this.currentPath];
 
-        if (pathStr.startsWith('/')) {
+        if (pathStr === "~") return { id: "None", name: "/" } as any;
+
+        if (pathStr.startsWith('~/')) {
+            currentId = "None"; // Root
+            pathStack = [{ id: "None", name: "/" }];
+            pathStr = pathStr.slice(2);
+        } else if (pathStr.startsWith('/')) {
             currentId = "None"; // Root
             pathStack = [{ id: "None", name: "/" }];
             pathStr = pathStr.slice(1);
         }
-
-        if (pathStr === "~") return { id: "None", name: "/" } as any;
 
         const segments = pathStr.split('/').filter(s => s && s !== '.');
         let currentNode: WorkflowyNode | null = null;
