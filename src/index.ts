@@ -563,9 +563,9 @@ program
 // --- Interactive REPL (default) ---
 
 program
-    .command('repl', { isDefault: true })
+    .command('repl [initialPath]', { isDefault: true })
     .description('Start interactive shell')
-    .action(async () => {
+    .action(async (initialPath) => {
         const client = createClient();
 
         // Skip API key check in mock mode
@@ -582,7 +582,22 @@ program
 
         try {
             await session.init();
-            spinner.succeed(isMockMode() ? "Mock mode active" : "Connected");
+
+            if (initialPath) {
+                try {
+                    spinner.text = `Navigating to ${initialPath}...`;
+                    await session.changeDirectory(initialPath);
+                    spinner.succeed(isMockMode()
+                        ? `Mock mode active (${initialPath})`
+                        : `Connected (${initialPath})`);
+                } catch (navError: any) {
+                    spinner.warn(`Could not navigate to '${initialPath}': ${navError.message}`);
+                    spinner.succeed(isMockMode() ? "Mock mode active" : "Connected");
+                }
+            } else {
+                spinner.succeed(isMockMode() ? "Mock mode active" : "Connected");
+            }
+
             await startRepl(session);
         } catch (e: any) {
             spinner.fail("Failed to start session");

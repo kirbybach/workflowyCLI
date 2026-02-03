@@ -8,9 +8,10 @@ import type { WorkflowyNode } from '../api/index.js';
 registerCommand({
     name: 'tree',
     description: 'Show visual tree of children',
-    usage: 'tree [depth] [-a] [--json]',
+    usage: 'tree [path] [depth] [-a] [--json]',
     args: [
-        { name: 'depth', required: false, description: 'Maximum depth to display (default: 2)' }
+        { name: 'arg1', required: false, description: 'Path or depth' },
+        { name: 'arg2', required: false, description: 'Path or depth' }
     ],
     flags: [
         { name: 'all', alias: 'a', description: 'Show completed items', type: 'boolean' }
@@ -28,19 +29,33 @@ interface TreeNode {
 
 async function treeHandler(session: Session, { args, flags }: CommandContext): Promise<void> {
     let maxDepth = 2;
-    const numArg = args.find(a => !isNaN(parseInt(a, 10)));
-    if (numArg) {
-        maxDepth = parseInt(numArg, 10);
+    let rootId = session.getCurrentNodeId();
+    let displayPath = session.getCurrentPathString();
+
+    // Parse mixed arguments (depth vs path)
+    for (const arg of args) {
+        if (!arg) continue;
+
+        // Check if strict number
+        if (/^\d+$/.test(arg)) {
+            maxDepth = parseInt(arg, 10);
+        } else {
+            // Assume path
+            const node = await session.resolvePath(arg);
+            if (!node) {
+                throw new Error(`Path not found: ${arg}`);
+            }
+            rootId = node.id;
+            displayPath = arg;
+        }
     }
 
     try {
-        const rootId = session.getCurrentNodeId();
-
         if (flags.json) {
             // Build tree structure for JSON output
             const treeData = await buildTreeJson(session, rootId, 0, maxDepth, flags.all as boolean);
             const output = {
-                path: session.getCurrentPath(),
+                path: displayPath,
                 maxDepth,
                 tree: treeData
             };
@@ -49,7 +64,7 @@ async function treeHandler(session: Session, { args, flags }: CommandContext): P
         }
 
         // Pretty output
-        console.log(chalk.blue(session.getCurrentPathString()));
+        console.log(chalk.blue(displayPath));
         await printNode(session, rootId, 0, maxDepth, "", flags.all as boolean);
 
     } catch (e: any) {

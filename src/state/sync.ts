@@ -11,23 +11,7 @@ interface TreeCache {
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes standard TTL
 const SYNC_TIMEOUT_MS = 60000;      // 60 seconds timeout (increased for larger trees)
 
-export interface SearchResult {
-    node: WorkflowyNode;
-    path: PathSegment[]; // Breadcrumbs to this node
-    matchField: 'name' | 'note';
-    matchContent: string;
-}
-
-export interface PathSegment {
-    id: string;
-    name: string;
-}
-
-export interface SearchOptions {
-    includeNotes?: boolean;
-    limit?: number;
-    isRegex?: boolean;
-}
+import type { PathSegment, SearchResult, SearchOptions } from './types.js';
 
 export class TreeSyncService {
     private client: IWorkflowyClient;
