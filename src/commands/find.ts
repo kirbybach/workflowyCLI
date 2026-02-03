@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import { Session } from '../state/session.js';
 import { registerCommand } from './registry.js';
 import type { CommandContext } from './registry.js';
-import type { PathSegment } from '../state/sync.js';
+import type { PathSegment } from '../state/types.js';
 
 // Register the find command
 registerCommand({
