@@ -38,12 +38,6 @@ async function updateHandler(session: Session, { args, flags }: CommandContext):
         let node = await session.nodeService.getNode(targetId);
 
         if (!node) {
-            if (!flags.json) console.log(chalk.dim('Node not in cache, fetching...'));
-            await session.forceSync(!flags.json);
-            node = await session.nodeService.getNode(targetId);
-        }
-
-        if (!node) {
             throw new Error(`Node not found globally: ${targetId}`);
         }
 

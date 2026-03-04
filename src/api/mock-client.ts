@@ -103,6 +103,15 @@ export class MockWorkflowyClient {
         return parent?.ch ? JSON.parse(JSON.stringify(parent.ch)) : [];
     }
 
+    async getNode(id: string): Promise<WorkflowyNode> {
+        await this.delay(10);
+        const node = this.findNode(id);
+        if (!node) {
+            throw new Error(`Node not found: ${id}`);
+        }
+        return JSON.parse(JSON.stringify(node));
+    }
+
     async createNode(parentId: string, name: string, note?: string): Promise<WorkflowyNode> {
         await this.delay(10);
 

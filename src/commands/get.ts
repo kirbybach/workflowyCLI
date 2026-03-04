@@ -23,12 +23,6 @@ async function getHandler(session: Session, { args, flags }: CommandContext): Pr
         // We use the NodeService to get the node by ID from cache or sync
         let node = await session.nodeService.getNode(targetId);
 
-        if (!node) {
-            if (!flags.json) console.log(chalk.dim('Node not in cache, fetching...'));
-            // If we don't have it, force a sync and try again
-            await session.forceSync(!flags.json);
-            node = await session.nodeService.getNode(targetId);
-        }
 
         if (!node) {
             throw new Error(`Node not found globally: ${targetId}`);

@@ -28,12 +28,6 @@ async function insertHandler(session: Session, { args, flags }: CommandContext):
         let parentNode = await session.nodeService.getNode(parentId);
 
         if (!parentNode) {
-            if (!flags.json) console.log(chalk.dim('Parent node not in cache, fetching...'));
-            await session.forceSync(!flags.json);
-            parentNode = await session.nodeService.getNode(parentId);
-        }
-
-        if (!parentNode) {
             throw new Error(`Parent node not found globally: ${parentId}`);
         }
 

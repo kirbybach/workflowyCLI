@@ -15,6 +15,7 @@ export interface IWorkflowyClient {
     setApiKey(key: string): void;
     getApiKey(): string | undefined;
     getNodes(parentId?: string): Promise<WorkflowyNode[]>;
+    getNode(id: string): Promise<WorkflowyNode>;
     createNode(parentId: string, name: string, note?: string): Promise<WorkflowyNode>;
     updateNode(id: string, updates: Partial<WorkflowyNode>): Promise<WorkflowyNode>;
     deleteNode(id: string): Promise<void>;

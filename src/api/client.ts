@@ -139,6 +139,14 @@ export class WorkflowyClient {
         return data.nodes || [];
     }
 
+    /**
+     * Fetches a specific node by ID.
+     */
+    async getNode(id: string): Promise<WorkflowyNode> {
+        const url = `/nodes/${id}`;
+        return await this.request(url);
+    }
+
     async createNode(parentId: string, name: string, note?: string): Promise<WorkflowyNode> {
         // POST /api/v1/nodes
         const body: any = { parent_id: parentId, name };

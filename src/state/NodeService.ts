@@ -59,16 +59,16 @@ export class NodeService {
     }
 
     async getNode(nodeId: string): Promise<WorkflowyNode | null> {
-        // Try cache first
+        // Try simple cache first
         const cached = this.syncService.findNodeById(nodeId);
         if (cached) return cached.node;
 
-        // Fallback: we might need to fetch the parent to find the node? 
-        // Or can we fetch it directly? API is getNodes(parentId).
-        // If we don't know the parent, we are stuck unless we search or sync.
-        // For now, let's rely on SyncService's findNodeById which covers the tree.
-        // If not in tree, we return null. Use forceSync() if you suspect it exists.
-        return null;
+        try {
+            // Direct API hit to bypass full-tree sync
+            return await this.client.getNode(nodeId);
+        } catch (e) {
+            return null;
+        }
     }
 
     // Helper from Session.ts
