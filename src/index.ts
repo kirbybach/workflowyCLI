@@ -13,6 +13,9 @@ import './commands/add.js';
 import './commands/rm.js';
 import './commands/complete.js';
 import './commands/find.js';
+import './commands/get.js';
+import './commands/update.js';
+import './commands/insert.js';
 import './commands/sync.js';
 import './commands/cd.js';
 import './commands/mv.js';
@@ -498,6 +501,84 @@ program
             process.exit(1);
         }
     });
+
+program
+    .command('get <id>')
+    .description('Instantly fetch a node globally by ID')
+    .option('--json', 'Output as JSON')
+    .action(async (id, options) => {
+        try {
+            const session = await createSession();
+
+            const cmdDef = getCommand('get')!;
+            const args: string[] = [id];
+            if (options.json) args.push('--json');
+
+            const ctx = parseArgs(cmdDef, args);
+            await cmdDef.handler(session, ctx);
+        } catch (e: any) {
+            if (options.json) {
+                console.log(JSON.stringify({ error: e.message }));
+            } else {
+                console.error(`Error: ${e.message}`);
+            }
+            process.exit(1);
+        }
+    });
+
+program
+    .command('update <id>')
+    .description('Update a node directly by its UUID')
+    .option('--name <text>', 'New name for the node')
+    .option('--note <text>', 'New note for the node')
+    .option('--json', 'Output as JSON')
+    .action(async (id, options) => {
+        try {
+            const session = await createSession();
+
+            const cmdDef = getCommand('update')!;
+            const args: string[] = [id];
+            if (options.name) args.push('--name', options.name);
+            if (options.note) args.push('--note', options.note);
+            if (options.json) args.push('--json');
+
+            const ctx = parseArgs(cmdDef, args);
+            await cmdDef.handler(session, ctx);
+        } catch (e: any) {
+            if (options.json) {
+                console.log(JSON.stringify({ error: e.message }));
+            } else {
+                console.error(`Error: ${e.message}`);
+            }
+            process.exit(1);
+        }
+    });
+
+program
+    .command('insert <parentId> <name> [note]')
+    .description('Insert a new node as a child of a specific UUID')
+    .option('--json', 'Output as JSON')
+    .action(async (parentId, name, note, options) => {
+        try {
+            const session = await createSession();
+
+            const cmdDef = getCommand('insert')!;
+            const args: string[] = [parentId, name];
+            if (note) args.push(note);
+            if (options.json) args.push('--json');
+
+            const ctx = parseArgs(cmdDef, args);
+            await cmdDef.handler(session, ctx);
+        } catch (e: any) {
+            if (options.json) {
+                console.log(JSON.stringify({ error: e.message }));
+            } else {
+                console.error(`Error: ${e.message}`);
+            }
+            process.exit(1);
+        }
+    });
+
 
 program
     .command('export [target]')

@@ -115,6 +115,9 @@ Once inside the REPL, you can use the following commands:
 | `add` | Create a new node | `add <text> [note] [--json]` |
 | `edit` | Edit a node's note in $EDITOR | `edit <target> [new_text] [--json]` |
 | `cat` | Display node details (name and note) | `cat <target> [--json]` |
+| `get` | Fetch node details globally by UUID | `get <id> [--json]` |
+| `update` | Update a node globally by UUID | `update <id> [--name] [--note] [--json]` |
+| `insert` | Create a node under a specific UUID parent | `insert <parentId> <name> [note] [--json]` |
 | `mark` | Bookmark current location | `mark <name> [--json]` |
 | `goto` | Jump to a bookmarked location | `goto <name> [--json]` |
 | `mv` | Move a node | `mv <source> <dest> [--json]` |
@@ -242,7 +245,36 @@ cat tasks.json | wf import --format=json
 echo "- Task 1\n  - Subtask" | wf import --format=markdown
 ```
 
-## MCP Server (AI Agent Integration)
+## AI Agent Integration (OpenClaw)
+
+While MCP is supported, LLM agents (like OpenClaw) interacting with WorkflowyCLI via standard shell commands often struggle with stateful traversal (like `cd`) and parsing human-readable tables.
+
+To make agent integrations flawless, use the **ID-based suite** of commands with the `--json` flag:
+
+1. **Global Search**: Find the target node first
+   ```bash
+   wf find "Quarterly Planning" --json
+   ```
+   *(Returns an array of results with UUIDs)*
+
+2. **Fetch by ID**: Read a specific node's content instantly
+   ```bash
+   wf get "a3b8d1b6-0b3b-4b1a-9c1a-1a2b3c4d5e6f" --json
+   ```
+
+3. **Update by ID**: Edit the node directly without navigating to it
+   ```bash
+   wf update "a3b8d1b6-0b3b-4b1a-9c1a-1a2b3c4d5e6f" --name="New Name" --json
+   ```
+
+4. **Insert by Parent ID**: Create new child nodes perfectly
+   ```bash
+   wf insert "parent-uuid-1234" "My New Task" "Optional note" --json
+   ```
+
+These commands bypass `changeDirectory` state completely, acting as pure idempotent API wrappers that are extremely reliable for LLM agents.
+
+## MCP Server (Model Context Protocol)
 
 WorkflowyCLI includes an MCP (Model Context Protocol) server, allowing AI agents like Claude to use your Workflowy as a tool.
 
