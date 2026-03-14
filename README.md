@@ -16,6 +16,8 @@ A powerful command-line interface for Workflowy, allowing you to navigate and ma
 -   **Rich Editing**: Edit notes using your preferred terminal editor ($EDITOR).
 -   **Visual Tree**: View your nested lists with a tree visualization.
 -   **Clipboard Support**: Copy nodes and their children to the clipboard.
+-   **Import/Export**: Move data freely with Markdown, JSON, and OPML support.
+-   **AI-Agent Bridge**: ID-based suite and MCP server for RAG workflows.
 
 ## Installation
 
@@ -245,11 +247,13 @@ cat tasks.json | wf import --format=json
 echo "- Task 1\n  - Subtask" | wf import --format=markdown
 ```
 
-## AI Agent Integration (OpenClaw)
+## AI Agent Integration
 
-While MCP is supported, LLM agents (like OpenClaw) interacting with WorkflowyCLI via standard shell commands often struggle with stateful traversal (like `cd`) and parsing human-readable tables.
+LLM agents (like OpenClaw) often struggle with stateful traversal (like `cd`) and parsing human-readable tables. To solve this, WorkflowyCLI supports **Global ID Resolution**.
 
-To make agent integrations flawless, use the **ID-based suite** of commands with the `--json` flag:
+Most commands accept a node's **ID (UUID)** as a target. Because resolution is global, you can act on any node from anywhere in your tree without navigating first.
+
+### Key Global ID Commands:
 
 1. **Global Search**: Find the target node first
    ```bash
@@ -273,6 +277,20 @@ To make agent integrations flawless, use the **ID-based suite** of commands with
    ```
 
 These commands bypass `changeDirectory` state completely, acting as pure idempotent API wrappers that are extremely reliable for LLM agents.
+
+## Retrieval Augmented Generation (RAG) & AI
+
+WorkflowyCLI is designed to be the ultimate bridge between your personal knowledge base and AI agents.
+
+### Why Workflowy for RAG?
+- **Hierarchical Context**: Unlike flat files, Workflowy's tree structure preserves the semantic relationships between ideas.
+- **Instant Search**: The CLI uses a cached tree sync for millisecond search latency.
+- **Stable ID Mapping**: Use UUIDs to ensure AI agents always reference the correct node, even if you move it.
+
+### AI Integration Flow
+1. **Search**: Agent calls `wf_find` to locate relevant nodes.
+2. **Context**: Agent calls `wf_tree` or `wf_export` to ingest a subtree as context.
+3. **Execute**: Agent uses `wf_update` or `wf_insert` to take action based on the context.
 
 ## MCP Server (Model Context Protocol)
 
@@ -301,9 +319,13 @@ Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/
 | `wf_tree` | Get tree structure with depth |
 | `wf_add` | Create a new node |
 | `wf_rm` | Delete a node |
-| `wf_complete` | Toggle completion status |
-| `wf_find` | Search for nodes |
+| `wf_find` | Search for nodes (nearly instant via cache) |
 | `wf_export` | Export subtree to JSON/markdown |
+| `wf_get` | Fetch node by UUID (stateless) |
+| `wf_update` | Update node by UUID (stateless) |
+| `wf_insert` | Insert node under parent UUID (stateless) |
+| `wf_complete` | Toggle completion status |
+| `wf_rm` | Delete a node |
 
 ### Command Help
 
@@ -345,6 +367,13 @@ npm test
 ```
 
 Mock mode uses a fake in-memory tree, perfect for development and testing.
+
+## Roadmap
+
+- [ ] **Core SDK**: Decouple logic into `@workflowy/core` for any Node.js project.
+- [ ] **`wf ai` Suite**: Semantic search, auto-summarization, and task expansion.
+- [ ] **Shadow Git**: One-way backup to a local Git repo for granular history.
+- [ ] **Smart Templates**: Markdown templates with `{{handlebars}}` style variables.
 
 ## License
 
