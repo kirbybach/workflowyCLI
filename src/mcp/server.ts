@@ -23,6 +23,9 @@ import '../commands/complete.js';
 import '../commands/find.js';
 import '../commands/sync.js';
 import '../commands/export.js';
+import '../commands/get.js';
+import '../commands/update.js';
+import '../commands/insert.js';
 
 let session: Session | null = null;
 
@@ -244,6 +247,82 @@ export async function startMcpServer(): Promise<void> {
             const args: string[] = [];
             if (path) args.push(path);
             args.push('--format', format || 'json');
+
+            const { output, error } = await captureOutput(async () => {
+                const ctx = parseArgs(cmdDef, args);
+                await cmdDef.handler(sess, ctx);
+            });
+
+            return {
+                content: [{ type: 'text', text: output || error || 'No output' }]
+            };
+        }
+    );
+
+    // Tool: wf_get - Fetch node by ID (Batman ID-suite)
+    server.tool(
+        'wf_get',
+        'Fetch a node by its UUID (stateless)',
+        {
+            id: z.string().describe('The UUID of the node to fetch')
+        },
+        async ({ id }) => {
+            const sess = await getSession();
+            const cmdDef = getCommand('get')!;
+            const args = [id, '--json'];
+
+            const { output, error } = await captureOutput(async () => {
+                const ctx = parseArgs(cmdDef, args);
+                await cmdDef.handler(sess, ctx);
+            });
+
+            return {
+                content: [{ type: 'text', text: output || error || 'No output' }]
+            };
+        }
+    );
+
+    // Tool: wf_update - Update node by ID (Batman ID-suite)
+    server.tool(
+        'wf_update',
+        'Update a node directly by its UUID',
+        {
+            id: z.string().describe('The UUID of the node to update'),
+            name: z.string().optional().describe('New name for the node'),
+            note: z.string().optional().describe('New note for the node')
+        },
+        async ({ id, name, note }) => {
+            const sess = await getSession();
+            const cmdDef = getCommand('update')!;
+            const args = [id, '--json'];
+            if (name) args.push('--name', name);
+            if (note) args.push('--note', note);
+
+            const { output, error } = await captureOutput(async () => {
+                const ctx = parseArgs(cmdDef, args);
+                await cmdDef.handler(sess, ctx);
+            });
+
+            return {
+                content: [{ type: 'text', text: output || error || 'No output' }]
+            };
+        }
+    );
+
+    // Tool: wf_insert - Insert node by parent ID (Batman ID-suite)
+    server.tool(
+        'wf_insert',
+        'Insert a new node as a child of a specific UUID',
+        {
+            parentId: z.string().describe('The UUID of the parent node'),
+            name: z.string().describe('Name of the new node'),
+            note: z.string().optional().describe('Optional note for the node')
+        },
+        async ({ parentId, name, note }) => {
+            const sess = await getSession();
+            const cmdDef = getCommand('insert')!;
+            const args = [parentId, name, '--json'];
+            if (note) args.push(note);
 
             const { output, error } = await captureOutput(async () => {
                 const ctx = parseArgs(cmdDef, args);
