@@ -31,16 +31,15 @@ export class PathResolver {
         }
 
         const segments = pathStr.split('/').filter(s => s && s !== '.');
-        let currentNode: WorkflowyNode | null = null;
-
-        if (segments.length === 0) {
-            if (lookupId === "None") {
-                return { id: "None", name: "/" } as any;
-            } else {
-                // Return current node details shell
-                return { id: lookupId, name: currentPathStack[currentPathStack.length - 1]?.name || "?" } as any;
-            }
+        
+        // --- Global ID lookup fallback for single segment paths ---
+        // This makes `rm <ID>`, `complete <ID>`, and `ls <ID>` globally ID-aware.
+        if (segments.length === 1) {
+            const idNode = await nodeService.getNode(segments[0]!);
+            if (idNode) return idNode;
         }
+
+        let currentNode: WorkflowyNode | null = null;
 
         for (const segment of segments) {
             if (segment === '..') {

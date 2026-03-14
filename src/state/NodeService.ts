@@ -9,6 +9,7 @@ export class NodeService {
     private client: IWorkflowyClient;
     private syncService: TreeSyncService;
     private nodeCache: Map<string, WorkflowyNode[]> = new Map();
+    private flatCache: Map<string, WorkflowyNode> = new Map();
 
     constructor(client: IWorkflowyClient) {
         this.client = client;
@@ -51,6 +52,12 @@ export class NodeService {
             // Sort by priority (k)
             children.sort((a, b) => (a.k || 0) - (b.k || 0));
             this.nodeCache.set(nodeId, children);
+            
+            // Update flat cache
+            for (const child of children) {
+                this.flatCache.set(child.id, child);
+            }
+            
             return children;
         } catch (error) {
             console.error("Failed to fetch node children:", error);
@@ -59,13 +66,26 @@ export class NodeService {
     }
 
     async getNode(nodeId: string): Promise<WorkflowyNode | null> {
-        // Try simple cache first
+        // 1. Check flat cache (nodes seen during this session)
+        if (this.flatCache.has(nodeId)) {
+            return this.flatCache.get(nodeId)!;
+        }
+
+        // 2. Load disk cache into memory if not already there
+        await this.syncService.getTree();
+
+        // 3. Check sync service (full tree)
         const cached = this.syncService.findNodeById(nodeId);
-        if (cached) return cached.node;
+        if (cached) {
+            this.flatCache.set(nodeId, cached.node);
+            return cached.node;
+        }
 
         try {
-            // Direct API hit to bypass full-tree sync
-            return await this.client.getNode(nodeId);
+            // 4. Direct API hit as last resort
+            const node = await this.client.getNode(nodeId);
+            if (node) this.flatCache.set(nodeId, node);
+            return node;
         } catch (e) {
             return null;
         }
@@ -88,26 +108,25 @@ export class NodeService {
     async createNode(parentId: string, name: string, note?: string): Promise<WorkflowyNode> {
         const newNode = await this.client.createNode(parentId, name, note);
         this.nodeCache.delete(parentId);
+        this.flatCache.set(newNode.id, newNode);
         this.syncService.addNodeToCache(parentId, newNode);
         return newNode;
     }
 
     async deleteNode(nodeId: string): Promise<void> {
         await this.client.deleteNode(nodeId);
-        // We don't know the parent ID easily to invalidate nodeCache specific key,
-        // but we can remove it from syncService.
-        // For nodeCache, we might have stale children arrays. 
-        // Ideally we invalidate everything or track parents.
-        // Given current Session logic just cleared `this.currentNodeId` cache, 
-        // we can be broader or just trust SyncService.
-        this.nodeCache.clear(); // Safest approach for now
+        this.nodeCache.clear();
+        this.flatCache.delete(nodeId);
         this.syncService.removeNodeFromCache(nodeId);
     }
 
-    async updateNode(nodeId: string, updates: Partial<WorkflowyNode>): Promise<void> {
-        await this.client.updateNode(nodeId, updates);
-        this.nodeCache.clear(); // Invalidate safely
+    async updateNode(nodeId: string, updates: Partial<WorkflowyNode>): Promise<WorkflowyNode> {
+        const updatedNode = await this.client.updateNode(nodeId, updates);
+        this.nodeCache.clear();
+        // Update flat cache
+        this.flatCache.set(nodeId, updatedNode);
         this.syncService.updateNodeInCache(nodeId, updates);
+        return updatedNode;
     }
 
     async completeNode(nodeId: string): Promise<void> {

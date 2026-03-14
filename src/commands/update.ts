@@ -46,10 +46,7 @@ async function updateHandler(session: Session, { args, flags }: CommandContext):
         if (newName !== undefined) updates.name = newName;
         if (newNote !== undefined) updates.note = newNote;
 
-        await session.updateNode(targetId, updates);
-
-        // Re-fetch to confirm change
-        const updatedNode = await session.nodeService.getNode(targetId);
+        const updatedNode = await session.updateNode(targetId, updates);
 
         if (flags.json) {
             console.log(JSON.stringify({
